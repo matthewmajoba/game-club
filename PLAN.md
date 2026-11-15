@@ -114,7 +114,7 @@ Hannah, Junior, Katie, Sarah, Anthony, Giselle, Michael, Kat, Kalon, Matt (admin
   address above; update them if the domain changes). Icons + `site.webmanifest` for home screens.
   Rebuild images with `python scripts/make_share_images.py`.
 - Known gap: Steam search can show adult-only games in results; nothing filters them yet.
-- **Daily saying + crystal ball like button** (`js/pep.js`, migration `20261116020000_daily_pep_talk.sql`):
+- **Daily Reading** (under the chat; daily saying + crystal ball like button) (`js/pep.js`, migration `20261116020000_daily_pep_talk.sql`):
   30 sayings in `public.sayings`, one per day, flipping at midnight Pacific. The floating crystal
   ball (WebGL shader: iridescent swirling fog, glitter, energy filaments) adds to one shared pool
   per day in `public.saying_likes` (members only; visitors can tap for fun but it doesn't count).

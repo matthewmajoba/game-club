@@ -35,7 +35,7 @@ const dayNum = (d) => { const [y, m, dd] = d.split("-").map(Number); return Math
 
 // ---------- the crystal ball shader ----------
 // uFlow: accumulated swirl. uCharge: 0..1 magic from tapping. uPulse: seconds since the last tap.
-// uHeart / uLike: how much of each vision is showing (0..1). uTex: LIKE 👍 (R sharp, G glow, B detail).
+// uHeart: how much of the heart is showing (0..1). uLike/uTex are a retired second vision (always 0 / blank).
 const ORB_VERT = "attribute vec2 p;varying vec2 vUv;void main(){vUv=p*0.5+0.5;gl_Position=vec4(p,0.0,1.0);}";
 // shared by the ball and the counter: noise, fog, iridescent palette, glitter
 const NOISE = `
@@ -145,32 +145,6 @@ void main(){
   gl_FragColor = vec4(clamp(col,0.0,1.0)*mask, mask);
 }`;
 
-// LIKE 👍 painted once into a texture: R = sharp shape, G = soft glow, B = inner detail
-function likeTexture(size = 256) {
-  const mk = () => { const c = document.createElement("canvas"); c.width = c.height = size; return c; };
-  const paint = (c, blur) => {
-    const g = c.getContext("2d");
-    if (blur) g.filter = `blur(${Math.round(size * 0.035)}px)`;
-    g.textBaseline = "middle"; g.fillStyle = "#fff";
-    const word = `900 ${Math.round(size * 0.15)}px "Arial Black", Arial, sans-serif`;
-    const emo = `${Math.round(size * 0.16)}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
-    g.font = word; const ww = g.measureText("LIKE").width;
-    g.font = emo; const ew = g.measureText("👍").width;
-    const gap = size * 0.03, x0 = (size - ww - gap - ew) / 2, y = size / 2;
-    g.font = word; g.fillText("LIKE", x0, y + size * 0.005);
-    g.font = emo; g.fillText("👍", x0 + ww + gap, y);
-  };
-  const sharp = mk(), soft = mk(); paint(sharp, false); paint(soft, true);
-  const a = sharp.getContext("2d").getImageData(0, 0, size, size).data;
-  const b = soft.getContext("2d").getImageData(0, 0, size, size).data;
-  const out = new Uint8Array(size * size * 4);
-  for (let i = 0; i < a.length; i += 4) {
-    const lum = (a[i] * 0.3 + a[i + 1] * 0.59 + a[i + 2] * 0.11) / 255;
-    out[i] = a[i + 3]; out[i + 1] = b[i + 3]; out[i + 2] = Math.round(Math.min(1, lum * 1.15) * 255); out[i + 3] = 255;
-  }
-  return { w: size, h: size, data: out };
-}
-
 // ---------- the magic counter shader ----------
 // One dark recessed window (no separate tiles) with a slow violet mist and drifting firefly glints.
 // Digits are made of twigs (a 7-segment display built from crossed, lashed sticks) with a soft magic
@@ -179,7 +153,7 @@ function likeTexture(size = 256) {
 const MC_FRAG = `precision highp float;
 varying vec2 vUv;
 uniform vec2 uRes;
-uniform float uTime, uFlow, uCharge, uPulse;
+uniform float uTime, uFlow, uCharge, uPulse, uBloom;
 uniform float uCur[6], uPrev[6], uProg[6];
 uniform sampler2D uTex;
 ${NOISE}
@@ -215,6 +189,32 @@ void main(){
   col = mix(col, wood, a);
   float eO = smoothstep(0.09,0.0,abs(dn-to))*sin(3.14159*outV)*max(so.a, go*0.5);
   float eN = smoothstep(0.09,0.0,abs(dn-ti))*sin(3.14159*inV)*max(sn.a, gn*0.5);
+  // milestone blooms: as the count climbs (uBloom 0..1) flowers and leaves sprout along the twigs.
+  // Candidate spots sit on a grid in digit space; each one opens once uBloom passes its own threshold.
+  if (uBloom > 0.001) {
+    vec2 gg = g*vec2(4.0, 6.0);
+    for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+      vec2 id = floor(gg) + vec2(float(x), float(y));
+      float h1 = h21(id + fi*13.1 + cur*7.3), h2 = h21(id + 4.7 + cur*3.1), h3 = h21(id + 9.2 + fi*1.7);
+      vec2 spot = (id + 0.25 + 0.5*vec2(h2, h3))/vec2(4.0, 6.0);
+      if (spot.x < 0.0 || spot.x > 1.0 || spot.y < 0.0 || spot.y > 1.0) continue;
+      float grow = smoothstep(h1*0.92, h1*0.92 + 0.1, uBloom)*step(0.5, twig(cur, spot).a)*nR;
+      if (grow <= 0.0) continue;
+      vec2 dp = (g - spot)*vec2(80.0, 120.0);
+      if (h2 < 0.3) {                                                    // a leaf
+        float ang = h3*6.2832; vec2 lp = mat2(cos(ang), -sin(ang), sin(ang), cos(ang))*dp;
+        float lf = smoothstep(1.0, 0.7, length((lp - vec2(6.0*grow, 0.0))/vec2(8.5*grow + 0.001, 3.8*grow + 0.001)));
+        col = mix(col, mix(vec3(0.22,0.55,0.18), vec3(0.62,0.95,0.45), clamp(lp.y/(3.8*grow + 0.001)*0.5 + 0.5, 0.0, 1.0)), lf);
+      } else {                                                           // a five-petal flower with a golden middle
+        float R = 11.0*grow, rr = length(dp), an = atan(dp.y, dp.x) + h1*6.2832;
+        float pet = R*(0.55 + 0.45*abs(cos(2.5*an)));
+        vec3 pc = h3 < 0.33 ? vec3(1.0,0.62,0.85) : (h3 < 0.66 ? vec3(1.0,0.97,1.0) : vec3(0.78,0.62,1.0));
+        col = mix(col, mix(pc*0.72, pc, smoothstep(pet, 0.0, rr)), smoothstep(pet + 1.2, pet - 0.8, rr));
+        col = mix(col, vec3(1.0,0.84,0.3), smoothstep(R*0.32, R*0.2, rr));
+        col += pc*exp(-rr/(R + 0.001)*1.5)*0.22*grow;
+      }
+    }
+  }
   col += vec3(1.0,0.55,0.15)*eO*1.9 + vec3(0.72,1.0,0.45)*eN*1.4;      // embers burning away / sprouts growing in
   col += magic*(1.0-prog)*(1.0-prog)*0.45*glow;
   col *= 1.0 + uCharge*0.15 + exp(-uPulse*5.0)*0.25;
@@ -313,17 +313,18 @@ function glQuad(cv, frag, tex, floats, arrays = []) {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };
 }
-const orbGL = (cv) => glQuad(cv, ORB_FRAG, likeTexture(), ["uTime", "uFlow", "uCharge", "uPulse", "uHover", "uHeart", "uLike"]);
-const counterGL = (cv) => glQuad(cv, MC_FRAG, stickAtlas(), ["uTime", "uFlow", "uCharge", "uPulse"], ["uCur", "uPrev", "uProg"]);
+const orbGL = (cv) => glQuad(cv, ORB_FRAG, { w: 1, h: 1, data: new Uint8Array(4) }, ["uTime", "uFlow", "uCharge", "uPulse", "uHover", "uHeart", "uLike"]);
+const counterGL = (cv) => glQuad(cv, MC_FRAG, stickAtlas(), ["uTime", "uFlow", "uCharge", "uPulse", "uBloom"], ["uCur", "uPrev", "uProg"]);
 
 export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   const root = document.getElementById("pep");
   if (!root) return { authChanged() {} };
 
   // ---------- DOM ----------
+  const title = h("h2", { class: "pep-title" }, "Daily Reading");
   const quote = h("p", { class: "pep-quote" }, "...");
   const orbCv = h("canvas", { class: "orb-gl", "aria-hidden": "true" });
-  const orbEl = h("span", { class: "orb" }, orbCv, h("span", { class: "orb-lbl", "aria-hidden": "true" }, "👍 LIKE"));
+  const orbEl = h("span", { class: "orb" }, orbCv);
   const btn = h("button", { type: "button", class: "sb", "aria-label": "Like today's saying" }, orbEl);
   const wrap = h("div", { class: "sb-wrap" }, btn);
   const fxBack = h("canvas", { class: "smash-fx back", "aria-hidden": "true" });
@@ -341,7 +342,8 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   const srCount = h("span", { class: "sr" });
   const counter = h("div", { class: "hits", role: "status" }, frameEl, h("small", { "aria-hidden": "true" }, "likes"), srCount);
   const smash = h("div", { class: "smash" }, stageEl, counter);
-  root.replaceChildren(quote, smash);
+  const note = h("p", { class: "tapnote" }, "Like the message? Tap the ball to spread its influence far and wide ✨");
+  root.replaceChildren(title, quote, smash, note);
 
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const ctxs = [fxBack, fxFront].map((c) => { c.width = c.height = W * dpr; const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); return g; });
@@ -354,6 +356,10 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   mcCv.width = Math.round(MC_W * dpr); mcCv.height = Math.round(MC_H * dpr);
   const dig = { uCur: new Float32Array(6), uPrev: new Float32Array(6), uProg: new Float32Array(6).fill(1) };
   let drawMC = null, lastLand = -1e9;
+  // milestones: at each one the twigs flourish a little more (flowers + leaves), with a celebration
+  const MILESTONES = [100, 250, 500, 1000, 2500, 5000, 10000];
+  let bloomLevel = 0, bloomV = 0, bloomReady = false;
+  const levelFor = (n) => MILESTONES.filter((m) => n >= m).length;
   Promise.race([document.fonts?.load('400 78px "Bungee"') || Promise.resolve(), new Promise((r) => setTimeout(r, 1500))])
     .catch(() => {})
     .then(() => { drawMC = counterGL(mcCv); if (drawMC) frameEl.classList.add("gl"); });
@@ -525,8 +531,6 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   // ---------- visions + charge + render loop ----------
   let vis = true, raf = 0, last = 0, flow = 0, hover = 0, hoverT = 0;
   let charge = 0, lastTap = -1e9, swelled = false;
-  let heartV = 1, likeV = 0, showing = "heart", nextSwap = performance.now() + 6500;
-  const VIS_SPEED = 0.7; // ~1.4 s to fully dissolve or form
   function frame(now) {
     raf = 0;
     if (!vis || document.hidden) return;
@@ -537,16 +541,12 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
     hover += (hoverT - hover) * Math.min(1, dt * 5);
     flow += dt * (0.22 + hover * 0.3 + charge * 1.4) * calm;
     hueBase += dt * (12 + charge * 60);
-    // visions take turns: the shown one is eaten by the fog first, then the other forms
-    if (now > nextSwap && now - lastTap > 5000) { showing = showing === "heart" ? "like" : "heart"; nextSwap = now + 7000; }
-    const sp = dt * VIS_SPEED;
-    if (showing === "like") { heartV = Math.max(0, heartV - sp); if (heartV < 0.3) likeV = Math.min(1, likeV + sp); }
-    else { likeV = Math.max(0, likeV - sp); if (likeV < 0.3) heartV = Math.min(1, heartV + sp); }
-    if (drawOrb) drawOrb({ uTime: (now / 1000) * calm, uFlow: flow, uCharge: charge, uPulse: (now - lastTap) / 1000, uHover: hover, uHeart: heartV, uLike: likeV });
+    if (drawOrb) drawOrb({ uTime: (now / 1000) * calm, uFlow: flow, uCharge: charge, uPulse: (now - lastTap) / 1000, uHover: hover, uHeart: 1, uLike: 0 });
     smash.style.setProperty("--charge", charge.toFixed(3));
     if (drawMC) {
       for (let i = 0; i < 6; i++) dig.uProg[i] = Math.min(1, dig.uProg[i] + dt / 0.8);
-      drawMC({ uTime: (now / 1000) * calm, uFlow: flow * 0.7, uCharge: charge, uPulse: (now - lastLand) / 1000, ...dig });
+      bloomV += (bloomLevel / MILESTONES.length - bloomV) * Math.min(1, dt * 0.6);   // flowers open slowly
+      drawMC({ uTime: (now / 1000) * calm, uFlow: flow * 0.7, uCharge: charge, uPulse: (now - lastLand) / 1000, uBloom: Math.max(0, bloomV), ...dig });
     }
     if (!reduced() && charge > 0.45 && Math.random() < dt * (charge - 0.35) * 10) spawnStrand(charge);   // overflowing magic
     stepFx(dt, now, reduced() ? 0 : smooth(0.35, 0.85, charge), reduced() ? 0 : smooth(0.45, 0.9, charge));
@@ -571,6 +571,9 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
     shown = n;
     const s = String(n).padStart(6, "0");
     srCount.textContent = `${n} ${n === 1 ? "like" : "likes"} today`;
+    const lvl = levelFor(n);
+    if (!bloomReady) { bloomLevel = lvl; bloomV = lvl / MILESTONES.length; }          // loading: already in bloom, no party
+    else if (lvl > bloomLevel) { bloomLevel = lvl; milestone(MILESTONES[lvl - 1]); }   // crossed one live: celebrate
     const six = s.slice(-6), animate = roll && prev && !reduced();
     for (let i = 0; i < 6; i++) {
       const d = Number(six[i]);
@@ -595,6 +598,7 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
     if (error || d !== day) return;
     serverTotal = (data || []).reduce((a, r) => a + r.n, 0);
     setShown(serverTotal + pending, true);
+    bloomReady = true;
   }
   function countLike() {
     if (!getToken()) {
@@ -633,6 +637,15 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
     }).catch(() => {});
   });
 
+  // a milestone: the counter bursts with petals and sparkles and the twigs start to flower
+  function milestone(m) {
+    if (reduced()) return;
+    swell();
+    for (let i = 0; i < 6; i++) { const [x, y] = counterPt(0.1 + i * 0.16); burst(x, y, 8, [318, 338, 268, 190][i % 4]); }
+    frameEl.animate([{ filter: "brightness(2) saturate(1.4)" }, { filter: "none" }], { duration: 1400, easing: "ease-out" });
+    toast(`🌸 ${m.toLocaleString()} likes today! The counter is blooming.`);
+  }
+
   // ---------- a tap ----------
   let pressA = null;
   function tap() {
@@ -640,8 +653,6 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
     const now = performance.now();
     charge = Math.min(1, charge + (now - lastTap < 600 ? 0.11 : 0.16));
     lastTap = now;
-    if (showing !== "like") { showing = "like"; }
-    nextSwap = now + 7000;
     start();
     pressA?.cancel();
     pressA = orbEl.animate([
@@ -676,7 +687,7 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   }).subscribe();
   setInterval(() => { // new saying at midnight Pacific
     const d = todayStr();
-    if (d !== day) { day = d; shown = -1; serverTotal = 0; showSaying(); setShown(0); loadTotal(); }
+    if (d !== day) { day = d; shown = -1; serverTotal = 0; bloomReady = false; showSaying(); setShown(0); loadTotal(); }
   }, 60000);
 
   return { authChanged() { warned = false; nudged = false; loadTotal().catch(() => {}); } };
