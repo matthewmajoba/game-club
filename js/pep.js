@@ -16,10 +16,131 @@ const TZ = "America/Los_Angeles";
 const CRACK_AT = [20, 30, 40], BREAK_AT = 50;
 const SLOW_DECAY = 1, FAST_DECAY = 10, IDLE_MS = 450;
 const TAU = Math.PI * 2;
-// geometry, must match .smash-stage / .sb-wrap / .smash-fx / .crate in the CSS:
-// stage 170x110, button 136x54 centred at (85,64), canvas 400x400 centred on the button
-const W = 400, CX = 200, CY = 200, RX = 68, RY = 27, GROUND = 246, BTN_FLOOR = 231, BOX_TOP = 146;
-const PW = 136, PH = 54; // button size = crack svg viewBox
+// geometry, must match .smash-stage / .sb-wrap / .orb / .smash-fx / .crate in the CSS:
+// stage 170x140, crystal ball 86px centred at (85,67), canvas 400x400 centred on the ball
+const W = 400, CX = 200, CY = 200, RX = 43, RY = 43, GROUND = 273, BTN_FLOOR = 273, BOX_TOP = 173;
+const PW = 86, PH = 86; // ball size = crack svg viewBox
+
+// ---------- the crystal ball (a tiny WebGL shader) ----------
+// Swirling iridescent fog (domain-warped noise in a vortex), glitter that rides the swirl,
+// a glowing heart, glass absorption + rainbow rim, a caustic under-glow, and shine.
+// uFlow is accumulated swirl (speeds up with hover and heat), uPulse = seconds since a hit.
+const ORB_VERT = "attribute vec2 p;varying vec2 vUv;void main(){vUv=p*0.5+0.5;gl_Position=vec4(p,0.0,1.0);}";
+const ORB_FRAG = `precision highp float;
+varying vec2 vUv;
+uniform vec2 uRes;
+uniform float uTime, uFlow, uHeat, uPulse, uDead, uHover;
+float h31(vec3 p){ p = fract(p*0.3183099 + 0.1); p *= 17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+float h21(vec2 p){ p = fract(p*vec2(123.34,456.21)); p += dot(p, p+45.32); return fract(p.x*p.y); }
+float vnoise(vec3 x){
+  vec3 i = floor(x), f = fract(x); f = f*f*(3.0-2.0*f);
+  return mix(mix(mix(h31(i),h31(i+vec3(1,0,0)),f.x), mix(h31(i+vec3(0,1,0)),h31(i+vec3(1,1,0)),f.x), f.y),
+             mix(mix(h31(i+vec3(0,0,1)),h31(i+vec3(1,0,1)),f.x), mix(h31(i+vec3(0,1,1)),h31(i+vec3(1,1,1)),f.x), f.y), f.z);
+}
+float fbm(vec3 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a*vnoise(p); p = p*2.02 + vec3(1.7,9.2,3.1); a *= 0.5; } return s; }
+float dot2(vec2 v){ return dot(v,v); }
+float sdHeart(vec2 p){ p.x = abs(p.x); if (p.y+p.x > 1.0) return sqrt(dot2(p-vec2(0.25,0.75))) - 0.35355;
+  return sqrt(min(dot2(p-vec2(0.0,1.0)), dot2(p-0.5*max(p.x+p.y,0.0)))) * sign(p.x-p.y); }
+vec3 pal(float t){ return 0.55 + 0.45*cos(6.28318*(t + vec3(0.0,0.18,0.42))); }
+float glitter(vec2 g, float t, float dens){
+  vec2 id = floor(g), f = fract(g) - 0.5;
+  float r = h21(id);
+  vec2 o = (vec2(h21(id+3.1), h21(id+7.7)) - 0.5)*0.7;
+  vec2 d = abs(f - o);
+  float tw = pow(max(0.0, sin(t*(1.5+r*4.0) + r*60.0)), 6.0);
+  float core = smoothstep(0.10, 0.0, length(f-o));
+  float rays = smoothstep(0.025,0.0,d.x)*smoothstep(0.28,0.0,d.y) + smoothstep(0.025,0.0,d.y)*smoothstep(0.28,0.0,d.x);
+  return step(1.0-dens, r) * tw * (core + rays*0.55);
+}
+void main(){
+  vec2 uv = vUv*2.0 - 1.0;
+  float r = length(uv);
+  float px = 2.0/uRes.x;
+  float mask = 1.0 - smoothstep(1.0 - 2.0*px, 1.0, r);
+  if (mask <= 0.0) { gl_FragColor = vec4(0.0); return; }
+  float z = sqrt(max(0.0, 1.0 - r*r));
+  vec3 n = vec3(uv, z);
+  float T = uFlow;
+  vec2 p = uv*(0.72 + 0.28*z);                                   // glass lens
+  p += (uv/(r+0.001)) * sin(r*16.0 - uPulse*20.0) * exp(-uPulse*4.0) * 0.07 * (1.0-r);  // hit ripple
+  float ang = T*0.8 + (1.0-r)*(2.4 + uHeat*3.0);                 // vortex: the middle spins faster
+  float c = cos(ang), s = sin(ang);
+  vec2 q = mat2(c,-s,s,c)*p;
+  vec3 P = vec3(q*1.7, T*0.3);
+  vec2 w = vec2(fbm(P), fbm(P + vec3(5.2,1.3,2.8)));
+  float d = fbm(P + vec3(w*1.9, T*0.15));
+  float fog = smoothstep(0.22, 0.72, d);
+  vec3 iri = pal(d*1.6 + w.x*0.9 + r*0.4 + T*0.05);
+  vec3 deep = mix(vec3(0.10,0.03,0.24), vec3(0.03,0.08,0.26), uv.y*0.5+0.5);
+  vec3 col = mix(deep, iri*1.1, 0.18 + fog*0.8);
+  col += vec3(1.0,0.95,1.0)*pow(fog,2.5)*0.35;                  // milky wisps
+  col += vec3(0.9,0.6,1.0)*exp(-r*r*4.0)*0.22;                  // inner glow
+  vec2 hp = vec2(uv.x, uv.y + 0.035*sin(uTime*1.6))*1.75 + vec2(0.0,0.55);
+  float hd = sdHeart(hp);
+  vec3 heart = vec3(1.0,0.25,0.65)*(0.9 + 0.25*sin(uTime*3.0));
+  col = mix(col, heart, smoothstep(0.04,-0.04,hd)*(0.72 - fog*0.3));
+  col += vec3(1.0,0.3,0.7)*exp(-max(hd,0.0)*6.0)*0.45;
+  float sp = glitter(q*6.0 + vec2(0.0, T*0.4), uTime*1.3, 0.5) + glitter(q*11.0 - vec2(T*0.3, 0.0), uTime*1.7, 0.35)*0.8;
+  col += (vec3(1.0) + iri*0.6) * sp * (0.7 + 0.6*fog) * 1.8;    // sparkly liquid
+  col = mix(col, col*vec3(1.5,0.85,0.45) + vec3(0.3,0.1,0.0)*fog, uHeat*0.7);  // boiling hot
+  col *= 0.7 + 0.4*z;                                           // thicker glass at the edge
+  col += pal(r*1.2 + uv.y*0.4 + uTime*0.03 + 0.5) * pow(1.0-z, 2.2) * 0.85;  // rainbow rim
+  col += vec3(1.0,0.75,0.95) * smoothstep(0.45,0.0,length((uv - vec2(0.0,-0.62))*vec2(1.0,1.8))) * 0.35;  // caustic
+  vec3 H = normalize(normalize(vec3(-0.55,0.65,0.55)) + vec3(0.0,0.0,1.0));
+  float spec = pow(max(dot(n,H),0.0), 90.0)*0.6;
+  float a2 = atan(uv.y, uv.x);                                    // curved window reflection, top-left
+  float arc = smoothstep(0.64,0.72,r)*smoothstep(0.92,0.84,r)*smoothstep(0.75,0.15,abs(a2 - 2.25))*0.6;
+  float dot1 = smoothstep(0.10,0.03,length(uv - vec2(-0.34,0.40)))*0.9;
+  float tiny = smoothstep(0.06,0.0,length(uv - vec2(0.42,-0.30)))*0.5;
+  float rim2 = smoothstep(0.86,0.97,r)*smoothstep(0.2,0.6,-uv.y*0.7 + uv.x*0.3)*0.25;
+  col += vec3(1.0)*(spec + arc + dot1 + tiny) + vec3(0.8,0.9,1.0)*rim2;
+  float g = dot(col, vec3(0.3,0.59,0.11));
+  col = mix(col, vec3(g)*0.35, uDead);
+  gl_FragColor = vec4(clamp(col,0.0,1.0)*mask, mask);
+}`;
+function orbGL(cv) {
+  let gl = null;
+  try { gl = cv.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false }); } catch { /* no webgl */ }
+  if (!gl) return null;
+  const shader = (type, src) => {
+    const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; }
+    return s;
+  };
+  const vs = shader(gl.VERTEX_SHADER, ORB_VERT), fs = shader(gl.FRAGMENT_SHADER, ORB_FRAG);
+  if (!vs || !fs) return null;
+  const pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return null;
+  gl.useProgram(pr);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(pr, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  const U = {}; for (const k of ["uRes", "uTime", "uFlow", "uHeat", "uPulse", "uDead", "uHover"]) U[k] = gl.getUniformLocation(pr, k);
+  return (o) => {
+    gl.viewport(0, 0, cv.width, cv.height);
+    gl.uniform2f(U.uRes, cv.width, cv.height);
+    for (const k of ["uTime", "uFlow", "uHeat", "uPulse", "uDead", "uHover"]) gl.uniform1f(U[k], o[k]);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  };
+}
+
+// the gold-and-lacquer stand the ball sits in (drawn in front of the ball's bottom)
+function standSvg() {
+  const s = sv("svg", { class: "stand", viewBox: "0 0 100 50", "aria-hidden": "true" });
+  s.innerHTML = `<defs>
+    <linearGradient id="gcGoldV" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3b8"/><stop offset=".45" stop-color="#e6ad33"/><stop offset=".56" stop-color="#b8771a"/><stop offset="1" stop-color="#f5d070"/></linearGradient>
+    <linearGradient id="gcGoldH" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8a5610"/><stop offset=".3" stop-color="#ffe9a0"/><stop offset=".55" stop-color="#d79a2a"/><stop offset="1" stop-color="#6e420a"/></linearGradient>
+    <linearGradient id="gcLac" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6a2e8c"/><stop offset=".5" stop-color="#2c0d40"/><stop offset="1" stop-color="#12041c"/></linearGradient>
+  </defs>
+  <path d="M22 6 A28 10 0 0 0 78 6 C78 17 66 24 50 24 C34 24 22 17 22 6 Z" fill="url(#gcGoldH)" stroke="#5a3200" stroke-width=".8"/>
+  <path d="M22 6 A28 10 0 0 0 78 6" fill="none" stroke="#fff6c8" stroke-width="1.2" opacity=".85"/>
+  <rect x="44" y="22" width="12" height="8" fill="url(#gcGoldH)" stroke="#5a3200" stroke-width=".6"/>
+  <path d="M8 46 L14 32 Q15 30 18 30 H82 Q85 30 86 32 L92 46 Q93 49 89 49 H11 Q7 49 8 46 Z" fill="url(#gcLac)" stroke="#e6ad33" stroke-width="1.2"/>
+  <path d="M16 32.5 H84" stroke="#fff3b8" stroke-width=".7" opacity=".6"/>
+  <rect x="27" y="34" width="46" height="12" rx="2" fill="url(#gcGoldV)" stroke="#5a3200" stroke-width=".7"/>
+  <text x="50" y="43.2" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="8.6" fill="#5a2d00" letter-spacing=".4">♥ LIKE</text>`;
+  return s;
+}
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -37,10 +158,6 @@ const dayNum = (d) => { const [y, m, dd] = d.split("-").map(Number); return Math
 const NS = "http://www.w3.org/2000/svg";
 const sv = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
 
-// gel button press states (the resting look is also in the CSS)
-const UP = "0 4px 0 #7a0040, 0 7px 9px rgba(0,0,0,.55)";
-const DOWN = "0 1px 0 #7a0040, 0 2px 3px rgba(0,0,0,.5)";
-
 export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   const root = document.getElementById("pep");
   if (!root) return { authChanged() {} };
@@ -49,8 +166,9 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   const quote = h("p", { class: "pep-quote" }, "...");
   const crackSvg = sv("svg", { viewBox: `0 0 ${PW} ${PH}`, "aria-hidden": "true" });
   const flash = h("span", { class: "flash" });
-  const gel = h("span", { class: "gel" }, h("span", { class: "hot" }), h("span", { class: "lbl" }, h("i", null, "♥"), "LIKE"), crackSvg, flash);
-  const btn = h("button", { type: "button", class: "sb", "aria-label": "Like today's saying" }, gel);
+  const orbCv = h("canvas", { class: "orb-gl", "aria-hidden": "true" });
+  const orbEl = h("span", { class: "orb" }, orbCv, h("span", { class: "hot" }), crackSvg, flash);
+  const btn = h("button", { type: "button", class: "sb", "aria-label": "Like today's saying" }, orbEl, standSvg());
   const wrap = h("div", { class: "sb-wrap" }, btn);
   const canvas = h("canvas", { class: "smash-fx", "aria-hidden": "true" });
   const comboN = h("b"), comboMsg = h("span");
@@ -64,6 +182,32 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   const ctx = canvas.getContext("2d");
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   canvas.width = W * dpr; canvas.height = W * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // ---------- the ball's swirling insides ----------
+  orbCv.width = orbCv.height = Math.round(PW * dpr);
+  let drawOrb = orbGL(orbCv);
+  if (!drawOrb) orbEl.classList.add("nogl"); // plain CSS ball if WebGL isn't available
+  orbCv.addEventListener("webglcontextlost", (e) => { e.preventDefault(); drawOrb = null; orbEl.classList.add("nogl"); });
+  let orbVis = true, orbRaf = 0, orbLast = 0, flow = 0, hover = 0, hoverT = 0, lastHitT = -1e9, dead = false, deadV = 0;
+  function orbFrame(now) {
+    orbRaf = 0;
+    if (!drawOrb || !orbVis || document.hidden) return;
+    const dt = Math.min(0.05, Math.max(0, (now - orbLast) / 1000)); orbLast = now;
+    const calm = reduced() ? 0.15 : 1, k = Math.min(1, heat / BREAK_AT);
+    hover += (hoverT - hover) * Math.min(1, dt * 5);
+    deadV += ((dead ? 1 : 0) - deadV) * Math.min(1, dt * 4);
+    flow += dt * (0.22 + hover * 0.35 + k * 1.6) * calm * (1 - deadV * 0.9);
+    drawOrb({ uTime: (now / 1000) * calm, uFlow: flow, uHeat: k, uPulse: (now - lastHitT) / 1000, uDead: deadV, uHover: hover });
+    orbRaf = requestAnimationFrame(orbFrame);
+  }
+  function startOrb() { if (!orbRaf && drawOrb) { orbLast = performance.now(); orbRaf = requestAnimationFrame(orbFrame); } }
+  new IntersectionObserver(([e]) => { orbVis = e.isIntersecting; if (orbVis) startOrb(); }).observe(orbEl);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) startOrb(); });
+  btn.addEventListener("pointerenter", () => { hoverT = 1; });
+  btn.addEventListener("pointerleave", () => { hoverT = 0; });
+  btn.addEventListener("focus", () => { hoverT = 1; });
+  btn.addEventListener("blur", () => { hoverT = 0; });
+  startOrb();
 
   // ---------- sounds (synthesized) ----------
   let master = null, nbuf = null;
@@ -91,7 +235,10 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   }
   const sound = (fn) => (...args) => { try { const a = A(); if (a) fn(a, a.currentTime, ...args); } catch { /* audio is a bonus */ } };
   const snd = {
-    thump: sound((a, t, k = 0) => { tone(a, t, 0.1, { f: 200 + k * 120, f2: 70, g: 0.42 }); nz(a, t, 0.025, { type: "highpass", f: 2800, g: 0.14 }); }),
+    thump: sound((a, t, k = 0) => { // soft knock + a glassy "tink"
+      tone(a, t, 0.1, { f: 200 + k * 120, f2: 70, g: 0.38 }); nz(a, t, 0.02, { type: "highpass", f: 3000, g: 0.1 });
+      const f = 1900 + Math.random() * 500 + k * 400; tone(a, t, 0.22, { f, g: 0.06 }); tone(a, t, 0.16, { f: f * 2.76, g: 0.025 });
+    }),
     crack: sound((a, t, i = 0) => {
       nz(a, t, 0.09, { type: "bandpass", f: 2200, q: 1.4, g: 0.6 });
       for (let j = 0; j < 4 + i * 3; j++) nz(a, t + j * 0.013 + Math.random() * 0.01, 0.02, { type: "highpass", f: 3000 + Math.random() * 3000, g: 0.12 + Math.random() * 0.2 });
@@ -119,7 +266,7 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   // ---------- particles (canvas around the button) ----------
   const parts = [];
   const add = (p) => { if (parts.length < 380) { p.max = p.life; parts.push(p); } };
-  const PINK = ["#ff1f8e", "#ff6ab8", "#c4006a", "#ffc2e0", "#e0007a"];
+  const GLASS = ["#ff8ae0", "#8af3ff", "#c4a0ff", "#ffe9a0", "#ffffff", "#ff4fb8"];
   const edge = (a) => [CX + Math.cos(a) * RX, CY + Math.sin(a) * RY];
   function sparks(x, y, n, speed = 320) {
     for (let i = 0; i < n; i++) {
@@ -133,7 +280,7 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
       add({ t: "spark", x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - speed * 0.35, life: rnd(0.22, 0.6), w: rnd(1.1, 2.3) });
     }
   }
-  function shards(x, y, n, speed, colors = PINK, size = 1, spread = 6) {
+  function shards(x, y, n, speed, colors = GLASS, size = 1, spread = 6) {
     for (let i = 0; i < n; i++) {
       const a = rnd(0, TAU), v = rnd(0.3, 1) * speed, m = Math.random() < 0.5 ? 3 : 4, pts = [];
       for (let j = 0; j < m; j++) { const b = (j * TAU) / m + rnd(-0.4, 0.4), r = rnd(1.8, 6) * size; pts.push([Math.cos(b) * r, Math.sin(b) * r]); }
@@ -200,7 +347,7 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   let groups = [], impact = [PW / 2, PH / 2];
   function buildCracks() {
     crackSvg.replaceChildren();
-    const ix = PW / 2 + rnd(-22, 22), iy = PH / 2 + rnd(-7, 7);
+    const ix = PW / 2 + rnd(-14, 14), iy = PH / 2 + rnd(-14, 14);
     impact = [ix, iy];
     groups = [0, 1, 2].map(() => { const g = sv("g", { class: "ck" }); crackSvg.append(g); return g; });
     const line = (g, pts) => {
@@ -315,16 +462,17 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
 
   function press(k) {
     pressA?.cancel();
-    pressA = gel.animate([
-      { transform: "none", boxShadow: UP },
-      { transform: `translateY(3px) scale(${(0.97 - k * 0.02).toFixed(3)},${(0.92 - k * 0.04).toFixed(3)})`, boxShadow: DOWN, offset: 0.28 },
-      { transform: "translateY(-2px) scale(1.01)", boxShadow: UP, offset: 0.7 },
-      { transform: "none", boxShadow: UP },
-    ], { duration: 160, easing: "cubic-bezier(.25,.7,.35,1)" });
+    // the ball sinks into its cup and springs back
+    pressA = orbEl.animate([
+      { transform: "none" },
+      { transform: `translateY(4px) scale(${(0.96 - k * 0.02).toFixed(3)},${(0.93 - k * 0.03).toFixed(3)})`, offset: 0.28 },
+      { transform: "translateY(-3px) scale(1.02)", offset: 0.7 },
+      { transform: "none" },
+    ], { duration: 170, easing: "cubic-bezier(.25,.7,.35,1)" });
   }
   function floater(txt) {
     if (reduced()) return;
-    const sr = smash.getBoundingClientRect(), br = btn.getBoundingClientRect();
+    const sr = smash.getBoundingClientRect(), br = orbEl.getBoundingClientRect();
     const f = h("span", { class: "plus" }, txt);
     f.style.left = `${br.left - sr.left + br.width * rnd(0.35, 0.75)}px`; f.style.top = `${br.top - sr.top + 6}px`;
     smash.append(f);
@@ -360,12 +508,12 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   function hit() {
     if (busy) return;
     audio();
-    heat += 1; streak += 1; lastHit = performance.now();
+    heat += 1; streak += 1; lastHit = performance.now(); lastHitT = lastHit; startOrb();
     const k = Math.min(1, heat / BREAK_AT);
     press(k); snd.thump(k); vib(heat > 30 ? 12 : 6);
     floater(countLike() ? "+1" : "♥");
     if (!reduced()) {
-      ring(CX, CY, RX + 2, RX + 16 + k * 24, 0.25 + k * 0.4, k > 0.5 ? "255,170,80" : "255,130,200", 2.5 + k * 3, 0.3, RY / RX + 0.15);
+      ring(CX, CY, RX + 2, RX + 16 + k * 24, 0.25 + k * 0.4, k > 0.5 ? "255,170,80" : "200,160,255", 2.5 + k * 3, 0.3);
       if (heat > 12) edgeSparks(Math.min(6, Math.floor((heat - 12) / 5) + 1), 260 + k * 180);
     }
     updateCombo(true);
@@ -429,7 +577,7 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   }
   function readyAgain() {
     buildCracks(); cracked = 0; heat = 0; streak = 0; jolt = 0;
-    gel.classList.remove("dead");
+    dead = false; orbEl.classList.remove("dead");
     busy = false; smash.classList.remove("busy"); btn.removeAttribute("aria-disabled");
     kick();
   }
@@ -438,7 +586,7 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
     for (let i = 0; i < 3; i++) if (cracked <= i) revealCrack(i);
     cracked = 3;
     if (reduced()) {
-      snd.shatter(); gel.classList.add("dead");
+      snd.shatter(); dead = true; orbEl.classList.add("dead");
       const st = h("div", { class: "dmg still" }, h("b", null, "DAMAGED"), h("small", null, "PLEASE STOP SMASHING"));
       stageEl.append(st);
       await wait(1600); st.remove(); readyAgain(); return;
@@ -451,11 +599,11 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
     // 2) it blows
     snd.shatter();
     flash.animate([{ opacity: 0.95 }, { opacity: 0 }], { duration: 320, easing: "ease-out" });
-    gel.classList.add("dead"); wrap.style.setProperty("--heat", "0");
-    shards(CX, CY, 30, 460, PINK, 1, 40); shards(CX, CY, 8, 340, ["#ffffff", "#ffd6ea"], 0.8, 40);
+    dead = true; orbEl.classList.add("dead"); wrap.style.setProperty("--heat", "0");
+    shards(CX, CY, 34, 460, GLASS, 1, 30); shards(CX, CY, 10, 340, ["#ffffff", "#e8f6ff"], 0.8, 30);
     edgeSparks(34, 460);
-    ring(CX, CY, 30, 130, 0.9, "255,230,200", 5, 0.45, 0.6); ring(CX, CY, 20, 95, 0.6, "255,150,60", 3, 0.6, 0.6);
-    smoke(CX, CY - 8, 9, { a: 0.45, r: 9, gr: 34, spread: 40 });
+    ring(CX, CY, 30, 130, 0.9, "255,230,200", 5, 0.45); ring(CX, CY, 20, 95, 0.6, "200,160,255", 3, 0.6);
+    smoke(CX, CY - 8, 9, { c: "120,90,160", a: 0.45, r: 9, gr: 34, spread: 30 });  // the fog escapes
     quake(8, 420);
     wrap.style.transform = "";
     play(wrap, [{ transform: "scale(1.08)" }, { transform: "translate(2px,5px) rotate(6deg) scale(.96)" }], { duration: 300, easing: "cubic-bezier(.2,.9,.3,1.3)" });
@@ -466,7 +614,7 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
       snd.zap();
       const [x, y] = edge(rnd(0, TAU));
       sparks(x, y, 6, 260);
-      gel.animate([{ filter: "grayscale(.2) brightness(1.4)" }, { filter: "grayscale(.6) brightness(.45) contrast(1.2)" }], { duration: 130 });
+      orbEl.animate([{ filter: "brightness(1.6)" }, { filter: "brightness(1)" }], { duration: 130 });
     }
     smoke(CX, CY - 14, 5, { a: 0.35, r: 8, gr: 26, spread: 30 });
     await wait(220);
@@ -498,7 +646,7 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
       { transform: "translate(-50%,-50%) rotate(-10deg) scale(1)", opacity: 1 },
     ], { duration: 240, easing: "ease-out" });
     play(c1, [{ transform: "scale(.96,1.03) rotate(-1deg)" }, { transform: "none" }], { duration: 220, easing: "cubic-bezier(.3,1.6,.5,1)" });
-    ring(CX - 8, CY + 2, 14, 64, 0.55, "255,255,255", 3, 0.3, 0.6);
+    ring(CX - 8, CY + 27, 14, 64, 0.55, "255,255,255", 3, 0.3, 0.6);
     await wait(520);
     // 6) yeet it off the screen
     const r = stageEl.getBoundingClientRect(), z = r.width / 170 || 1;
@@ -532,7 +680,7 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
     ], { duration: 360 }).finished;
     await wait(110);
     // 9) flaps burst open and a brand new button jumps out
-    buildCracks(); gel.classList.remove("dead");
+    buildCracks(); dead = false; orbEl.classList.remove("dead");
     const [fl, fr] = c2.querySelectorAll(".fl"), tape = c2.querySelector(".tp"), rays = c2.querySelector(".rays");
     snd.flaps(); vib(20);
     c2.animate([{ transform: "scale(1.05,.92)" }, { transform: "scale(.98,1.03)", offset: 0.5 }, { transform: "none" }], { duration: 260, easing: "ease-out" });
@@ -555,8 +703,8 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
     play(c2, [{ transform: "none", opacity: 1 }, { transform: "translateY(14px) scale(1.04,.2)", opacity: 0 }], { duration: 300, easing: "cubic-bezier(.5,0,.9,.5)" });
     await jump.finished;
     wrap.style.zIndex = "";
-    snd.thump(0); vib(15);
-    dust(CX - 50, BTN_FLOOR, 4, -1); dust(CX + 50, BTN_FLOOR, 4, 1); glints(CX, CY, 9, 60);
+    snd.thump(0); vib(15); lastHitT = performance.now();
+    dust(CX - 50, BTN_FLOOR, 4, -1); dust(CX + 50, BTN_FLOOR, 4, 1); glints(CX, CY, 12, 50);
     c2.remove();
     readyAgain();
   }
