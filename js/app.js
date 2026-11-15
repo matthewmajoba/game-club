@@ -214,10 +214,9 @@ function renderNav() {
     ? h("button", { type: "button", class: "btn", onclick: signOut }, "Sign out (", S.me.name, ")")
     : h("button", { type: "button", class: "btn on", onclick: openLogin }, "Sign in"));
   nav.replaceChildren(...items);
-  const r = S.round;
-  const label = r ? `${r.name}: under ${Number(r.max_hours)} hrs` : "between rounds";
-  $("round-tag").textContent = label.toLowerCase();
-  $("round-badge").textContent = r ? `${r.name} · under ${Number(r.max_hours)} hrs` : "Between rounds";
+  const max = Number(S.round?.max_hours || 8);
+  $("round-tag").textContent = `games under ${max} hrs`;
+  $("round-badge").textContent = `Under ${max} hrs`;
 }
 
 function renderTicker() {
@@ -490,7 +489,7 @@ function openAdd() {
     try { await callFn({ action: "add_manual", token: S.token, title: manual.value }); closeDialog(); await refreshGames(); toast("Sent! It goes on the shelf once the hours get checked."); }
     catch (e) { toast(errMsg(e), true); manualBtn.disabled = false; }
   });
-  body.append(h("h3", null, `Rule for ${S.round?.name || "this round"}: under ${Number(S.round?.max_hours || 8)} hours`), q, results, detail,
+  body.append(h("h3", null, `Rule: under ${Number(S.round?.max_hours || 8)} hours`), q, results, detail,
     h("details", null, h("summary", null, "Not on Steam? (Switch, PlayStation, etc.)"),
       h("div", { class: "row", vars: { "margin-top": "8px" } }, manual, manualBtn),
       h("small", null, "The hours get checked by hand before it goes on the shelf.")));
@@ -609,37 +608,36 @@ function openHof() {
   const body = dialog("🏆 Hall of Fame", { wide: true });
   body.append(S.hof.length ? h("div", { class: "hof" }, S.hof.map((g) => h("div", null,
     g.cover_url ? coverImg(g) : h("div", { class: "marker" }, g.title), h("b", null, g.title), h("span", null, "picked by ", member(g.member_id)?.name || "?"))))
-    : h("p", null, "No winners yet. Round 1 is still going!"));
+    : h("p", null, "No winners yet. Go put some games on the shelf!"));
 }
 function openRules() {
   const body = dialog("The Rules");
   const max = Number(S.round?.max_hours || 8);
   body.append(h("ol", { class: "rules" },
-    h("li", null, `One game each per round, under ${max} hours.`),
+    h("li", null, `One game each, under ${max} hours.`),
     h("li", null, "You get 3 🔥 to vote with. Put 2 on one game for a big vote."),
     h("li", null, "Backing out of your pick = +1 shame. Forever."),
-    h("li", null, "Hottest game wins the round. Then we all play it.")));
+    h("li", null, "Hottest game wins. Then we all play it.")));
 }
 function openAdmin() {
   const body = dialog("Admin");
-  const nextName = h("input", { type: "text", value: S.round ? `Round ${S.round.id + 1}` : "Next Round", maxLength: 60 });
   const box = h("div");
   const pending = S.games.filter((g) => g.status === "pending");
   const { per } = heat();
   const leader = S.games.filter((g) => g.status === "active").sort((a, b) => (per.get(b.id) || 0) - (per.get(a.id) || 0) || a.created_at.localeCompare(b.created_at))[0];
   const ask = () => box.replaceChildren(h("div", { class: "confirm" },
-    h("b", null, leader ? `Close ${S.round?.name}? ${leader.title} wins with ${per.get(leader.id) || 0} 🔥.` : "No games on the shelf yet."),
+    h("b", null, leader ? `${leader.title} wins with ${per.get(leader.id) || 0} 🔥, and the shelf gets cleared. Do it?` : "No games on the shelf yet."),
     h("div", { class: "row" }, h("button", { type: "button", class: "btn red", disabled: !leader, onclick: async () => {
-      try { await rpc("close_round", { p_token: S.token, p_next_name: nextName.value }); closeDialog(); await refreshGames(); celebrate("WINNER!"); }
+      try { await rpc("close_round", { p_token: S.token, p_next_name: "" }); closeDialog(); await refreshGames(); celebrate("WINNER!"); }
       catch (e) { toast(errMsg(e), true); }
     } }, "Yes, close it"), h("button", { type: "button", class: "btn", onclick: () => box.replaceChildren(closeBtn) }, "Not yet"))));
-  const closeBtn = h("button", { type: "button", class: "btn big", onclick: ask }, "Close the round + crown the winner");
+  const closeBtn = h("button", { type: "button", class: "btn big", onclick: ask }, "Crown the winner + clear the shelf");
   box.append(closeBtn);
   body.append(
     h("h3", null, "Waiting for your OK"),
     pending.length ? h("div", null, pending.map((g) => h("div", { class: "row" }, h("span", null, `${g.title} (${member(g.member_id)?.name})`),
       h("button", { type: "button", class: "btn", onclick: () => openGame(g.id) }, "Check it")))) : h("span", null, "Nothing waiting."),
-    h("h3", null, "End this round"), h("label", null, "Name of the next round: ", nextName), box,
+    h("h3", null, "Pick the winner"), box,
     h("small", null, "Need a new code for a member? Ask Claude to run scripts/set_codes.py with their name."));
 }
 

@@ -33,7 +33,7 @@ async function maxHours(): Promise<number> {
 
 function verdict(h: number | null, max: number) {
   if (h == null) return { kind: "nodata", ok: true, msg: "Steam doesn't know how long this one is, so it needs a quick hours check before it goes on the shelf." };
-  if (h <= max) return { kind: "ok", ok: true, msg: `About ${h} hrs. Perfect for this round!` };
+  if (h <= max) return { kind: "ok", ok: true, msg: `About ${h} hrs. Perfect!` };
   if (h <= max + 2) return { kind: "love", ok: true, msg: `About ${h} hrs... ok but just this once cause I love you!` };
   return { kind: "blocked", ok: false, msg: `This game is about ${h} hrs. That's way over ${max}. Choose a different game!` };
 }
