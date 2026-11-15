@@ -473,8 +473,7 @@ function openAdd() {
       });
       detail.replaceChildren(h("div", { class: "game-top" },
         h("div", { class: "case" }, h("img", { src: r.cover, alt: `${r.name} box art`, onerror: (e) => { e.target.src = r.thumb; } })),
-        h("div", { class: "facts" }, h("h3", null, r.name), h("div", { class: "verdict " + v.kind }, v.msg),
-          h("small", null, "Hours come from SteamSpy: the typical (median) time Steam players spend in the game."), add)));
+        h("div", { class: "facts" }, h("h3", null, r.name), h("div", { class: "verdict " + v.kind }, v.msg), add)));
     } catch (e) { detail.replaceChildren(h("span", { class: "err" }, errMsg(e))); }
   };
   q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(search, 350); });
@@ -518,7 +517,7 @@ async function refreshGameDialog() {
   const top = h("div", { class: "game-top" }, caseEl(g, { sticker: g.status === "active", tier: ti }),
     h("div", { class: "facts" },
       h("div", null, "Picked by ", nameEl(picker)),
-      h("div", null, h("b", null, "Length: "), g.hours ? `about ${g.hours} hrs ${g.hours_source === "matt" ? "(checked by hand)" : "(SteamSpy median)"}` : "unknown (needs an hours check)"),
+      h("div", null, h("b", null, "Length: "), g.hours ? `about ${g.hours} hrs${g.hours_source === "matt" ? " (checked by hand)" : ""}` : "unknown (needs an hours check)"),
       g.status === "active" ? h("div", null, h("b", null, "Heat: "), `${n} 🔥 · ${pct}% of all the heat · `, h("span", { class: `t${ti}` }, flip(TIERS[ti])), " ", TIERS[ti].k) : null,
       g.status === "won" ? h("div", { class: "ok" }, "🏆 WINNER") : null,
       g.steam_appid ? h("a", { href: `https://store.steampowered.com/app/${g.steam_appid}/`, target: "_blank", rel: "noopener" }, "See it on Steam ↗") : null));
