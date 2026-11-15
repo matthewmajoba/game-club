@@ -209,7 +209,7 @@ function renderNav() {
     h("button", { type: "button", class: "btn", onclick: openHof }, "🏆 Hall of Fame"),
     h("button", { type: "button", class: "btn", onclick: openRules }, "Rules"),
   ];
-  if (S.me?.is_admin) items.push(h("button", { type: "button", class: "btn pink", onclick: openAdmin }, "⚙ Matt Stuff"));
+  if (S.me?.is_admin) items.push(h("button", { type: "button", class: "btn pink", onclick: openAdmin }, "⚙ Admin"));
   items.push(S.me
     ? h("button", { type: "button", class: "btn", onclick: signOut }, "Sign out (", S.me.name, ")")
     : h("button", { type: "button", class: "btn on", onclick: openLogin }, "Sign in"));
@@ -222,7 +222,10 @@ function renderNav() {
 
 function renderTicker() {
   const el = $("facts");
-  const list = S.facts.length ? S.facts : ["Welcome to Game Club!"];
+  // shuffle so every visit starts on different facts; 30 at a time keeps the loop a sane length
+  const pool = S.facts.slice();
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  const list = pool.length ? pool.slice(0, 30) : ["Welcome to Game Club!"];
   el.replaceChildren(...list.flatMap((f, i) => (i ? [h("em", null, "★"), f] : [f])));
   requestAnimationFrame(() => { el.style.animationDuration = Math.max(60, el.scrollWidth / 38) + "s"; });
 }
@@ -252,7 +255,7 @@ function coverImg(g) {
 }
 function caseEl(g, { sticker = true, tier = 0, mine = 0 } = {}) {
   const c = h("div", { class: "case" }, g.cover_url ? coverImg(g) : h("div", { class: "marker" }, g.title));
-  if (g.status === "pending") c.append(h("span", { class: "waiting" }, "Waiting on Matt"));
+  if (g.status === "pending") c.append(h("span", { class: "waiting" }, "Hours check"));
   else if (sticker) c.append(h("span", { class: `sticker t${tier}`, title: TIERS[tier].k }, flip(TIERS[tier])));
   if (mine) c.append(h("span", { class: "mine" + (mine === 1 ? " one" : "") }, mine === 2 ? "your big vote ×2" : "your +1"));
   return c;
@@ -398,7 +401,7 @@ function askSecret(m) {
     inp, err,
     h("div", { class: "row" }, h("button", { type: "button", class: "btn big", onclick: go }, "It's really me"),
       h("button", { type: "button", class: "btn", onclick: openLogin }, "That's not me")),
-    h("small", null, "(Hint: it's the two secret words Matt gave you.)"));
+    h("small", null, "(Hint: it's your two secret words.)"));
   setTimeout(() => inp.focus(), 30);
 }
 
@@ -462,13 +465,13 @@ function openAdd() {
       const d = await callFn({ action: "info", appid: r.appid });
       if (picked !== r) return;
       const v = d.verdict;
-      const add = h("button", { type: "button", class: "btn big", disabled: !v.ok }, v.kind === "nodata" ? "Send it to Matt to check" : "Put it on the shelf!");
+      const add = h("button", { type: "button", class: "btn big", disabled: !v.ok }, v.kind === "nodata" ? "Send it for an hours check" : "Put it on the shelf!");
       add.addEventListener("click", async () => {
         add.disabled = true;
         try {
           const res = await callFn({ action: "add", token: S.token, appid: r.appid });
           closeDialog(); await refreshGames();
-          if (res.game?.status === "active") celebrate(); else toast("Sent to Matt! It'll show up once he checks the hours.");
+          if (res.game?.status === "active") celebrate(); else toast("Sent! It goes on the shelf once the hours get checked.");
         } catch (e) { toast(errMsg(e), true); add.disabled = false; }
       });
       detail.replaceChildren(h("div", { class: "game-top" },
@@ -480,17 +483,17 @@ function openAdd() {
   q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(search, 350); });
 
   const manual = h("input", { type: "text", placeholder: "game name", maxLength: 200 });
-  const manualBtn = h("button", { type: "button", class: "btn" }, "Send it to Matt");
+  const manualBtn = h("button", { type: "button", class: "btn" }, "Send it for a check");
   manualBtn.addEventListener("click", async () => {
     if (!manual.value.trim()) return toast("Type the game's name first.", true);
     manualBtn.disabled = true;
-    try { await callFn({ action: "add_manual", token: S.token, title: manual.value }); closeDialog(); await refreshGames(); toast("Sent to Matt! He has to check how long it is."); }
+    try { await callFn({ action: "add_manual", token: S.token, title: manual.value }); closeDialog(); await refreshGames(); toast("Sent! It goes on the shelf once the hours get checked."); }
     catch (e) { toast(errMsg(e), true); manualBtn.disabled = false; }
   });
   body.append(h("h3", null, `Rule for ${S.round?.name || "this round"}: under ${Number(S.round?.max_hours || 8)} hours`), q, results, detail,
     h("details", null, h("summary", null, "Not on Steam? (Switch, PlayStation, etc.)"),
       h("div", { class: "row", vars: { "margin-top": "8px" } }, manual, manualBtn),
-      h("small", null, "Matt has to look up how long it is before it goes on the shelf.")));
+      h("small", null, "The hours get checked by hand before it goes on the shelf.")));
   setTimeout(() => q.focus(), 30);
 }
 
@@ -518,7 +521,7 @@ async function refreshGameDialog() {
   const top = h("div", { class: "game-top" }, caseEl(g, { sticker: g.status === "active", tier: ti }),
     h("div", { class: "facts" },
       h("div", null, "Picked by ", nameEl(picker)),
-      h("div", null, h("b", null, "Length: "), g.hours ? `about ${g.hours} hrs ${g.hours_source === "matt" ? "(checked by Matt)" : "(SteamSpy median)"}` : "unknown (waiting on Matt)"),
+      h("div", null, h("b", null, "Length: "), g.hours ? `about ${g.hours} hrs ${g.hours_source === "matt" ? "(checked by hand)" : "(SteamSpy median)"}` : "unknown (needs an hours check)"),
       g.status === "active" ? h("div", null, h("b", null, "Heat: "), `${n} 🔥 · ${pct}% of all the heat · `, h("span", { class: `t${ti}` }, flip(TIERS[ti])), " ", TIERS[ti].k) : null,
       g.status === "won" ? h("div", { class: "ok" }, "🏆 WINNER") : null,
       g.steam_appid ? h("a", { href: `https://store.steampowered.com/app/${g.steam_appid}/`, target: "_blank", rel: "noopener" }, "See it on Steam ↗") : null));
@@ -563,7 +566,7 @@ async function refreshGameDialog() {
       try { await rpc("pull_game", { p_token: S.token, p_game_id: id }); closeDialog(); await refreshGames(); toast("Pulled off the shelf."); }
       catch (e) { toast(errMsg(e), true); }
     } }, "Pull it off the shelf"));
-    parts.push(h("div", { class: "confirm" }, h("b", null, "Matt only"), adminRow));
+    parts.push(h("div", { class: "confirm" }, h("b", null, "Admin"), adminRow));
   }
 
   const notesBox = h("div", { class: "notes glit" }, h("span", { class: "none" }, "loading notes..."));
@@ -612,16 +615,13 @@ function openRules() {
   const body = dialog("The Rules");
   const max = Number(S.round?.max_hours || 8);
   body.append(h("ol", { class: "rules" },
-    h("li", null, `Every round, each person can put ONE game on the shelf. This round it has to be under ${max} hours.`),
-    h("li", null, `Hours come from Steam players' typical playtime. ${max}–${max + 2} hrs gets a pass ("just this once cause I love you"). Over that is blocked.`),
-    h("li", null, "Games not on Steam go to Matt, who checks the hours by hand."),
-    h("li", null, "Everyone gets 3 🔥 per round. Spread them out, or put 2 on one game for a BIG VOTE."),
-    h("li", null, "You can back out of your pick, but you get +1 shame. Forever."),
-    h("li", null, "Matt closes the round. The hottest game wins and goes in the Hall of Fame. Then we all play it."),
-    h("li", null, "Be nice in the chat. 500 characters max.")));
+    h("li", null, `One game each per round, under ${max} hours. (${max}–${max + 2} gets a pass, just this once.)`),
+    h("li", null, "You get 3 🔥 to vote with. Put 2 on one game for a big vote."),
+    h("li", null, "Backing out of your pick = +1 shame. Forever."),
+    h("li", null, "Hottest game wins the round. Then we all play it.")));
 }
 function openAdmin() {
-  const body = dialog("Matt Stuff");
+  const body = dialog("Admin");
   const nextName = h("input", { type: "text", value: S.round ? `Round ${S.round.id + 1}` : "Next Round", maxLength: 60 });
   const box = h("div");
   const pending = S.games.filter((g) => g.status === "pending");
