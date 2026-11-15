@@ -1,0 +1,367 @@
+<title>Game Club v2 Mockup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Bungee&family=Creepster&family=Gochi+Hand&family=Metal+Mania&family=Monoton&family=Permanent+Marker&family=Press+Start+2P&family=Rock+Salt&family=Rubik+Glitch&family=Sedgwick+Ave+Display&family=UnifrakturMaguntia&family=VT323&display=swap">
+<style>
+/* Layout: cosmic theater-carpet page; dark school-club site on top: WordArt header, fact ticker, glass store display case left, AIM-style messenger right. Then the first sign-in screen. */
+:root{
+  --panel:#0a0a18; --ink:#eef0ff; --muted:#a3a8c8; --pink:#ff1f8e; --lime:#39ff14; --gold:#ffcc00;
+  --bevel:#2a2f4a; --bevel-hi:#6b74a8; --bevel-lo:#11142a;
+  --hand:"Gochi Hand","Comic Sans MS",cursive;
+  --sharpie:"Permanent Marker","Comic Sans MS",cursive;
+  --ui:Verdana,Geneva,Tahoma,sans-serif;
+  color-scheme:dark;
+}
+html{background:#0d0820}
+body{background:#0d0820 url(img/neon-tile.jpg) 0 0/900px auto repeat;color:var(--ink);font:13px/1.4 var(--ui)}
+.page{max-width:1120px;margin:0 auto;padding-block:16px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
+.note{background:#000;border:2px dashed var(--gold);color:var(--gold);padding:8px 12px;font-size:12px;justify-self:start;max-width:72ch}
+.note b{color:#fff}
+
+/* ---------- scene-kid borders: pink/black checker frame + lime dashed stitch inside ---------- */
+.panel{--fill:linear-gradient(var(--panel),var(--panel));--chk:var(--pink);--stitch:var(--lime);
+  border:12px solid transparent;
+  background:var(--fill) padding-box,url(img/checker-tile.jpg) 0 0/420px auto repeat border-box;box-shadow:0 0 0 2px #000,0 8px 24px rgba(0,0,0,.6);
+  position:relative;min-width:0;padding:7px}
+.panel::after{content:"";position:absolute;inset:2px;border:2px dashed var(--stitch);pointer-events:none;z-index:6}
+.panel.lime{--stitch:var(--pink)}
+
+/* ---------- header ---------- */
+.hdr{--fill:radial-gradient(120% 90% at 50% 0,#1d1648,var(--panel) 70%);display:grid;justify-items:center;gap:8px;padding:20px 12px 16px}
+.logo{font:900 clamp(44px,9vw,84px)/.95 Impact,"Arial Black",sans-serif;letter-spacing:2px;background:linear-gradient(#fffbd0,#ffe53f 25%,#ff9a00 55%,#ff2d55 85%);-webkit-background-clip:text;background-clip:text;color:transparent;transform:skewX(-10deg) scaleY(1.12);filter:drop-shadow(0 0 1px #fff) drop-shadow(2px 2px 0 #7a1030) drop-shadow(4px 4px 0 #3a0820) drop-shadow(6px 6px 0 #1a0010) drop-shadow(0 0 18px rgba(255,80,0,.55));text-align:center}
+.tagline{color:var(--lime);font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;text-align:center}
+.nav{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.btn{background:var(--bevel);border:3px outset var(--bevel-hi);color:#ffe53f;font:700 12px var(--ui);padding:4px 11px;cursor:pointer}
+.btn:active,.btn.on{border-style:inset;background:var(--bevel-lo)}
+.btn:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+.btn.logbtn{color:#3fe0ff}
+
+/* ---------- ticker ---------- */
+.ticker{display:flex;align-items:stretch;background:#000;border:3px solid #000;outline:2px solid #3a0010;overflow:hidden}
+.ticker .lbl{flex:none;background:linear-gradient(#e0182d,#8e0a18);color:#fff;font:400 13px Bungee,sans-serif;padding:6px 10px;display:flex;align-items:center;gap:6px}
+.ticker .lbl i{font-style:normal;width:8px;height:8px;border-radius:50%;background:#fff;animation:pulse 1s steps(1) infinite}
+@keyframes pulse{50%{opacity:0}}
+.ticker .run{overflow:hidden;white-space:nowrap;flex:1;display:flex;align-items:center}
+.ticker .run span{display:inline-block;padding-left:100%;animation:tick 240s linear infinite;font:22px/1 VT323,monospace;color:#ffcf3f;text-shadow:0 0 6px rgba(255,190,0,.6)}
+.ticker .run em{font-style:normal;color:#ff4b8a;margin:0 18px}
+@keyframes tick{to{transform:translateX(-100%)}}
+
+/* ---------- columns ---------- */
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:18px;align-items:start}
+@media (max-width:820px){.cols{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- glass display case ---------- */
+.wall{--fill:linear-gradient(#0e0e1c,#0e0e1c);padding:10px}
+.lightbox{position:relative;margin:2px 10px 0;padding:10px 14px;background:linear-gradient(#ffffff,#f1f4ff 45%,#dfe5f5);border:6px solid #1a1a1a;border-bottom:0;box-shadow:0 0 22px rgba(200,220,255,.55),inset 0 0 18px rgba(255,255,255,.9);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.lightbox h2{margin:0;font:italic 900 clamp(20px,3.6vw,30px)/1 "Arial Black",Impact,sans-serif;color:#d6001c;letter-spacing:-.5px;text-shadow:2px 2px 0 #ffd400}
+.lightbox .rnd{background:#d6001c;color:#fff;font:700 11px var(--ui);padding:3px 8px;text-transform:uppercase;letter-spacing:.06em}
+.budget{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;justify-content:space-between;margin:0 10px;padding:7px 12px;background:#000;border-inline:6px solid #1a1a1a;font-size:12px}
+.budget .tok{font-size:18px;letter-spacing:2px}
+.budget small{color:var(--muted)}
+.cabinet{margin:0 0 4px;border:12px solid #151515;border-top-width:8px;border-radius:2px;box-shadow:inset 0 0 0 2px #8e96a6,0 10px 20px rgba(0,0,0,.6);background:#151515;position:relative}
+.glass{position:relative;padding:22px 10px 6px;background:radial-gradient(90% 40% at 50% 0,rgba(220,245,255,.22),transparent 70%),linear-gradient(#262b3a,#12141c 70%);overflow:hidden}
+.glass::before{content:"";position:absolute;left:8%;right:8%;top:5px;height:5px;border-radius:3px;background:#f4fdff;box-shadow:0 0 8px #e6fbff,0 0 22px #b8ecff,0 0 40px rgba(160,220,255,.6)}
+.glass::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:5;background:linear-gradient(112deg,transparent 18%,rgba(255,255,255,.09) 19%,rgba(255,255,255,.03) 27%,transparent 28%,transparent 58%,rgba(255,255,255,.07) 59% 62%,transparent 63%,transparent 66%,rgba(255,255,255,.04) 67% 68%,transparent 69%)}
+.row{margin-bottom:14px}
+.cat{display:inline-block;margin:0 0 12px 4px;padding:3px 12px 3px 8px;font:italic 900 12px/1.1 "Arial Black",Arial,sans-serif;color:#fff;text-transform:uppercase;letter-spacing:.02em;background:linear-gradient(var(--cc),color-mix(in srgb,var(--cc) 65%,#000));border:1px solid rgba(255,255,255,.5);box-shadow:2px 2px 0 #000;clip-path:polygon(0 0,100% 0,94% 100%,0 100%)}
+.glass{container-type:inline-size}
+.items{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));row-gap:22px}
+@container (max-width:520px){.items{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.cell{display:flex;flex-direction:column;align-items:center;min-width:0;position:relative}
+/* 2000s keep case */
+.case{width:calc(100% - 22px);max-width:104px;aspect-ratio:5/7;background:#0b0b0b;border-radius:2px 4px 4px 2px;padding:3px 3px 3px 9px;position:relative;box-shadow:0 6px 8px rgba(0,0,0,.6)}
+.case::before{content:"";position:absolute;left:2px;top:4px;bottom:4px;width:5px;background:repeating-linear-gradient(#222 0 2px,#3a3a3a 2px 4px)}
+.case::after{content:"";position:absolute;inset:3px 3px 3px 9px;background:linear-gradient(125deg,rgba(255,255,255,.35),rgba(255,255,255,.05) 22%,transparent 40%,transparent 75%,rgba(255,255,255,.12));pointer-events:none}
+.cover{height:100%;display:flex;flex-direction:column;background:linear-gradient(170deg,var(--c1),var(--c2));overflow:hidden;position:relative}
+.band{background:#000;color:#fff;font:italic 700 7px/1 var(--ui);padding:3px 4px;letter-spacing:.08em;border-bottom:1px solid #666}
+.ttl{padding:4px 5px 0;color:#fff;font:900 12px/1 Impact,"Arial Black",sans-serif;text-transform:uppercase;text-shadow:1px 1px 0 #000,0 0 6px rgba(0,0,0,.6);position:relative;z-index:1}
+.cover .art{position:absolute;right:-6px;bottom:6px;font-size:40px}
+.hrs{position:absolute;left:4px;bottom:4px;background:#fff;color:#000;border:1px solid #000;width:20px;text-align:center;font:900 10px/1 Arial,sans-serif;padding:2px 0 1px;z-index:1}
+.hrs small{display:block;font:700 5px/1 Arial,sans-serif;border-top:1px solid #000;padding-top:1px;margin-top:1px}
+.price{position:absolute;right:-4px;bottom:16px;z-index:3;background:#ff7a00;color:#000;font:700 9px/1 "Courier New",monospace;padding:3px 4px;border:1px solid #b35400;transform:rotate(-3deg);white-space:nowrap}
+.sticker{position:absolute;top:-10px;right:-10px;z-index:3;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--st);border:2px solid #fff;box-shadow:1px 2px 0 rgba(0,0,0,.5)}
+.flip{display:inline-grid;line-height:1}
+.flip b{grid-area:1/1;font-weight:400;animation:fA var(--sp,1.4s) steps(1) infinite}
+.flip b+b{animation-name:fB}
+@keyframes fA{50%{opacity:0}}
+@keyframes fB{0%{opacity:0}50%{opacity:1}}
+.t0{--st:#9fd8ff;font-size:17px}.t1{--st:#bdbdbd;font-size:18px}.t2{--st:#ffe53f;font-size:20px}.t3{--st:#ff8a1c;font-size:22px}.t4{--st:#ff2d55;font-size:26px;--sp:.7s}
+.t4.sticker{border-radius:0;border:0;width:52px;height:52px;top:-16px;right:-16px;box-shadow:none;clip-path:polygon(50% 0,61% 16%,80% 8%,80% 28%,100% 34%,88% 52%,100% 68%,80% 74%,78% 94%,60% 86%,50% 100%,40% 86%,22% 94%,20% 74%,0 68%,12% 52%,0 34%,20% 28%,20% 8%,39% 16%);animation:shake .35s steps(2) infinite}
+@keyframes shake{50%{transform:rotate(8deg) scale(1.06)}}
+.mine{position:absolute;top:8px;left:0;z-index:4;background:#d6001c;color:#fff;font:900 8px/1.1 Arial,sans-serif;padding:3px 4px;transform:rotate(-10deg);border:1px solid #fff;text-transform:uppercase;text-align:center}
+.mine.one{background:#ffe53f;color:#000;border-color:#000}
+/* glass shelf */
+.edge{align-self:stretch;height:9px;margin-top:6px;background:linear-gradient(rgba(200,255,245,.55),rgba(90,170,160,.35));border-top:1px solid rgba(255,255,255,.85);box-shadow:0 5px 8px rgba(0,0,0,.55)}
+/* staff-pick shelf talker clipped to the shelf */
+.talker{position:relative;margin-top:3px;width:calc(100% - 18px);max-width:108px;background:#fdfdf8;color:#111;border:1px solid #9a9a9a;box-shadow:0 2px 0 rgba(0,0,0,.45);transform:rotate(var(--r,0deg));transform-origin:50% 0;text-align:center;padding-bottom:5px;z-index:2}
+.talker::before{content:"";position:absolute;top:-6px;left:50%;width:22px;height:9px;margin-left:-11px;background:linear-gradient(#e5e5e5,#9a9a9a);border:1px solid #666;border-radius:2px}
+.talker .hd{background:#d6001c;color:#fff;font:900 8px/1 Arial,sans-serif;letter-spacing:.12em;padding:4px 0 3px}
+.talker .who{display:inline-block;margin-top:5px;padding:0 4px;font:400 19px/1.05 var(--sharpie);color:#111;background:linear-gradient(transparent 52%,color-mix(in srgb,var(--mc) 75%,transparent) 52% 90%,transparent 90%)}
+.talker .say{display:block;font:14px/1 var(--hand);color:#1c3faa;margin-top:1px}
+.empty .case{background:transparent;border:2px dashed #6c7398;box-shadow:none;display:grid;place-items:center;padding:6px;color:#b8bde0;font:15px/1.1 var(--hand);text-align:center}
+.empty .case::before,.empty .case::after{display:none}
+.base{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;background:linear-gradient(#1f1f1f,#0c0c0c);border-top:2px solid #8e96a6}
+.lock{width:16px;height:16px;border-radius:50%;background:radial-gradient(#f0f0f0,#888 60%,#444);display:grid;place-items:center}
+.lock::after{content:"";width:2px;height:7px;background:#222}
+.assoc{background:#ffe53f;color:#000;font:900 9px/1.1 Arial,sans-serif;padding:3px 6px;text-transform:uppercase}
+
+.bin-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:16px 4px 6px}
+@media (max-width:520px){.bin-row{grid-template-columns:minmax(0,1fr)}}
+.bin{position:relative;padding:22px 12px 12px;background:repeating-linear-gradient(45deg,transparent 0 9px,#5a5f6e 9px 11px),repeating-linear-gradient(-45deg,transparent 0 9px,#5a5f6e 9px 11px),#17171f;border:3px solid #6a7080;border-top-width:6px;display:flex;flex-wrap:wrap;gap:12px}
+.bin .lbl{position:absolute;top:-14px;left:10px;background:#ffe53f;color:#000;font:900 12px "Arial Black",Arial,sans-serif;padding:3px 8px;transform:rotate(-2deg);border:1px solid #000}
+.scrap{position:relative;padding:8px 10px 8px 16px;color:#1c3faa;font:15px/1.15 var(--hand);transform:rotate(var(--r,-4deg));box-shadow:1px 2px 0 rgba(0,0,0,.5);background:linear-gradient(100deg,transparent 46%,rgba(0,0,0,.13) 49%,rgba(255,255,255,.4) 51%,transparent 54%),linear-gradient(90deg,transparent 9px,#f0a0a0 9px 10px,transparent 10px),repeating-linear-gradient(#fbfbf3 0 15px,#a9c4ec 15px 16px);clip-path:polygon(0 3%,8% 0,20% 4%,33% 1%,47% 4%,60% 0,74% 3%,88% 0,100% 4%,98% 100%,0 98%)}
+.scrap::after{content:"✗";position:absolute;right:4px;top:-4px;font:400 30px/1 var(--sharpie);color:#d6001c;opacity:.85}
+.shame{display:grid;gap:6px;justify-items:start}
+.shame button{background:#2a0a14;border:2px outset #7a2040;color:#ffb3c8;font:700 12px var(--ui);padding:4px 10px;cursor:pointer}
+.shame small{color:var(--muted)}
+
+.legend{display:flex;flex-wrap:wrap;gap:8px;padding:10px 4px 4px;margin-top:8px;border-top:2px dashed #2a2a48}
+.legend div{display:flex;align-items:center;gap:6px;background:#17172c;border:1px solid #2e2e50;padding:4px 8px;font-size:11px}
+.legend div b{font-weight:400}
+
+/* ---------- messenger (AIM-style, original) ---------- */
+.im{display:grid;gap:14px}
+.win{background:#c9ccd8;border:2px outset #e8eaf2;box-shadow:3px 3px 0 #000;color:#000;font:12px/1.3 Tahoma,Verdana,sans-serif;min-width:0}
+.tbar{display:flex;align-items:center;gap:6px;padding:3px 4px 3px 6px;background:linear-gradient(90deg,#0b1a6e,#2f5bd8 60%,#5d8cff);color:#fff;font-weight:700}
+.tbar .ico{width:16px;height:16px;border-radius:3px;background:#ffe53f;color:#000;display:grid;place-items:center;font-size:10px}
+.tbar .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tbar .wb{width:16px;height:14px;background:#c9ccd8;border:1px outset #fff;color:#000;font:700 9px/12px Tahoma,sans-serif;text-align:center}
+.tbar .wb.x{background:#d8402f;color:#fff}
+.menu{display:flex;gap:12px;padding:2px 8px;border-bottom:1px solid #8a8ea0}
+.menu u{text-decoration:underline}
+.ad{margin:4px;height:36px;display:grid;place-items:center;background:linear-gradient(90deg,#00a2ff,#ff00c8,#ffe53f,#00ff9c);background-size:300% 100%;animation:adslide 4s linear infinite;color:#000;font:400 12px Bungee,sans-serif;border:1px solid #000;text-align:center}
+@keyframes adslide{to{background-position:300% 0}}
+.tabs{display:flex;gap:2px;padding:4px 4px 0}
+.tabs span{padding:2px 10px;border:1px solid #8a8ea0;border-bottom:0;background:#b8bccb}
+.tabs .on{background:#12000f;color:#fff;font-weight:700}
+.glit{background:#12000f;background-image:radial-gradient(1.5px 1.5px at 20px 30px,#ff8ad8 99%,transparent),radial-gradient(1px 1px at 80px 10px,#fff 99%,transparent),radial-gradient(2px 2px at 50px 70px,#c48bff 99%,transparent),radial-gradient(1px 1px at 10px 90px,#fff 99%,transparent);background-size:100px 100px;animation:glit 3s steps(3) infinite;color:#ffd6f2}
+@keyframes glit{50%{background-position:3px 2px}}
+.blist{margin:0 4px;padding:6px 6px 8px;border:2px inset #e8eaf2;min-height:200px}
+.grp{color:#9aa0c8;font-weight:700;font-size:11px;margin:4px 0 2px;user-select:none}
+.blist ul{list-style:none;margin:0;padding:0 0 0 12px;display:grid;gap:1px}
+.blist li{display:flex;align-items:baseline;gap:6px;min-width:0}
+.nm{color:var(--mc);font-family:var(--mf);font-size:calc(17px * var(--fs,1));line-height:1.15;white-space:nowrap}
+.blist .away .nm{opacity:.75}
+.blist .awaymsg{font:italic 11px Tahoma,sans-serif;color:#a3a8c8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.blist .off .nm{opacity:.38}
+.blist .sh{font-size:11px}
+.dock{display:flex;justify-content:space-around;padding:5px 4px 6px;gap:2px}
+.dock span{display:grid;justify-items:center;font-size:10px;gap:1px;padding:2px 4px;border:1px solid transparent;cursor:pointer}
+.dock span:hover{border:1px outset #fff}
+.dock i{font-style:normal;font-size:17px}
+.here{margin:4px 4px 0;padding:5px 8px;border:2px inset #e8eaf2;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.here .lbl{color:#9aa0c8;font:700 11px Tahoma,sans-serif}
+.here .nm{font-size:calc(15px * var(--fs,1))}
+.chatlog{margin:4px;padding:6px 8px;border:2px inset #e8eaf2;height:340px;overflow:auto;display:grid;gap:4px;align-content:start}
+.chatlog p{margin:0;overflow-wrap:anywhere}
+.chatlog .ts{color:#7d82a8;font:10px Tahoma,sans-serif;margin-right:3px}
+.chatlog .nm{font-size:calc(15px * var(--fs,1))}
+.chatlog .msg{color:#fff;font:13px Tahoma,Verdana,sans-serif}
+.chatlog .sys{color:#9aa0c8;font:italic 11px Tahoma,sans-serif}
+.fmt{display:flex;gap:2px;padding:2px 4px;flex-wrap:wrap}
+.fmt span{min-width:22px;height:20px;display:grid;place-items:center;border:1px outset #fff;background:#d8dbe6;font:700 11px Tahoma,sans-serif}
+.send{display:flex;gap:4px;padding:0 4px 6px;align-items:stretch}
+.send .in{flex:1;background:#fff;border:2px inset #e8eaf2;min-height:40px;padding:4px;color:#666;font-size:11px;position:relative}
+.send .in .cnt{position:absolute;right:4px;bottom:2px;font-size:10px;color:#c00;font-weight:700}
+.send .go{border:2px outset #fff;background:#d8dbe6;font:700 12px Tahoma,sans-serif;padding:0 12px;display:grid;place-items:center}
+
+/* ---------- mobile tab bar ---------- */
+.mtabs{display:none}
+@media (max-width:820px){
+  .mtabs{display:flex;position:sticky;bottom:env(safe-area-inset-bottom,0px);z-index:20;background:#000;border-top:10px solid transparent;background:#000 padding-box,url(img/checker-tile.jpg) 0 0/420px auto repeat border-box}
+  .mtabs span{flex:1;text-align:center;padding:10px 0;font:400 13px Bungee,sans-serif;color:#9aa0c8}
+  .mtabs .on{color:#ffe53f;background:#1a1a30}
+  .mtabs b{background:#ff2d55;color:#fff;border-radius:9px;font:700 10px var(--ui);padding:1px 6px;margin-left:4px}
+}
+
+/* ---------- footer ---------- */
+.foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;padding:10px;font-size:11px;color:var(--muted);background:rgba(0,0,0,.75)}
+.badge{border:1px solid #6b74a8;background:#000;color:#cfd3ff;padding:3px 6px;font:700 10px var(--ui)}
+.star{color:var(--gold);font-size:18px;text-shadow:0 0 6px var(--gold)}
+
+/* ---------- first sign-in ---------- */
+.sect-h{font:400 22px Bungee,sans-serif;color:#fff;text-shadow:2px 2px 0 #000,0 0 8px #000;margin:12px 0 0}
+.setup{--fill:radial-gradient(120% 80% at 50% 0,#1d1648,var(--panel) 70%);padding:18px;display:grid;gap:18px}
+.step h3{margin:0 0 8px;font:700 15px var(--ui);color:#ffe53f}
+.step h3 span{color:var(--pink);margin-right:6px}
+.q{font:22px/1.2 var(--hand);color:#fff;margin:0 0 8px}
+.q b{color:var(--mc);font:400 24px var(--mf)}
+.secret{display:flex;gap:8px;flex-wrap:wrap}
+.secret .in{background:#000;border:2px inset #6b74a8;color:#7dff8a;font:22px/1 VT323,monospace;padding:6px 10px;min-width:min(260px,100%)}
+.sw{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px}
+.sw div{border:2px solid #000;padding:6px 6px 5px;background:#0f0f20;display:grid;gap:3px;font-size:11px;position:relative}
+.sw i{display:block;height:20px;background:var(--c);border:1px solid rgba(255,255,255,.3)}
+.sw .taken{opacity:.35}
+.sw .taken::after{content:attr(data-by);position:absolute;inset:0;display:grid;place-items:center;font:700 11px var(--ui);color:#fff;background:repeating-linear-gradient(45deg,rgba(0,0,0,.6) 0 6px,rgba(0,0,0,.3) 6px 12px)}
+.sw .pick{outline:3px solid #fff;outline-offset:1px}
+.fonts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.fonts div{background:#0f0f20;border:2px solid #2e2e50;padding:8px;display:grid;gap:4px;min-width:0}
+.fonts .nm{color:#ff3fa4;font-size:calc(24px * var(--fs,1));overflow:hidden;text-overflow:ellipsis}
+.fonts small{color:var(--muted);font-size:10px}
+.fonts .pick{border-color:#fff;background:#1e0f24}
+.preview{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#000;border:2px dashed #ff3fa4;padding:10px 12px}
+.preview .nm{font-size:28px}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important}.ticker .run span{padding-left:0}}
+</style>
+
+<main class="page">
+  <div class="note"><b>Mockup v2.2.</b> Neon squiggle photo tiled as the background, real checkered-fabric photo for the borders, chat room only. The realistic wall with real box art comes next, once the RAWG key is set up.</div>
+
+  <header class="panel hdr">
+    <div class="logo">GAME CLUB</div>
+    <div class="tagline">★ est. 2026 ★ like book club but for games ★ round 1: under 8 hrs ★</div>
+    <nav class="nav"><span class="btn on">The Wall</span><span class="btn logbtn">📜 Log</span><span class="btn">Hall of Fame</span><span class="btn">Rules</span><span class="btn">Sign Off</span></nav>
+  </header>
+
+  <div class="ticker" aria-label="Game facts ticker"><div class="lbl"><i></i>GCNN</div><div class="run"><span id="facts"></span></div></div>
+
+  <div class="cols">
+    <section class="panel wall" aria-label="Game wall">
+      <div class="lightbox"><h2>NEW THIS ROUND!</h2><span class="rnd">Round 1 · under 8 hrs</span></div>
+      <div class="budget">
+        <span>Your heat: <span class="tok">🔥🔥🔥</span> <b>0 left</b></span>
+        <small>3 🔥 per person · max 2 on one game (that's a big vote)</small>
+      </div>
+      <div class="cabinet">
+        <div class="glass" id="glass"></div>
+        <div class="base"><span class="assoc">Please ask a club member for assistance</span><span class="lock" aria-hidden="true"></span></div>
+      </div>
+      <div class="bin-row">
+        <div class="bin"><span class="lbl">RETURNS 'N SHAME</span><div class="scrap" style="--r:-5deg">Kalon: Space Novel 3<br>(52 hrs lol)</div><div class="scrap" style="--r:4deg">Kat: Moon Moles<br>(changed my mind)</div></div>
+        <div class="shame"><button type="button">Kalon's shame: 1 😤</button><button type="button">Kat's shame: 1 😤</button><small>tap a shame counter for sass</small></div>
+      </div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <aside class="im" aria-label="Messenger">
+      <div class="win">
+        <div class="tbar"><span class="ico">✦</span><span class="t">Game Club Chat Room</span><span class="wb">_</span><span class="wb x">x</span></div>
+        <div class="menu"><span><u>F</u>ile</span><span><u>E</u>dit</span><span><u>P</u>eople</span><span style="margin-left:auto">🚪 Sign Off</span></div>
+        <div class="here glit" id="here"></div>
+        <div class="chatlog glit" id="log"></div>
+        <div class="fmt"><span>A▲</span><span>A▼</span><span>B</span><span style="font-style:italic">I</span><span style="text-decoration:underline">U</span><span>🎨</span><span>😀</span><span>🔗</span></div>
+        <div class="send"><div class="in">ok so the thing about haunted mall is that the escalator level genuinely made me scream out loud in my car and i will not be taking questions at this time because...<span class="cnt">47 left</span></div><span class="go">Send</span></div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="mtabs"><span class="on">🎮 Wall</span><span>💬 Messenger<b>3</b></span></div>
+
+  <footer class="foot"><span class="star">★</span><span class="badge">Best viewed in 1024x768</span><span class="badge">Made w/ Notepad</span><span class="badge">Game data: RAWG</span><span>Photos: RDNE Stock project (Pexels), A Chosen Soul (Unsplash)</span><span>Last updated: 11/14/2026</span><span class="star">★</span></footer>
+
+  <h2 class="sect-h">First sign-in (what Katie sees)</h2>
+  <section class="panel lime setup" style="--mc:#ff3fa4;--mf:Creepster">
+    <div class="step">
+      <h3><span>1</span>Prove it</h3>
+      <p class="q">If you're really <b>Katie</b>, tell me something only I would know...</p>
+      <div class="secret"><div class="in">pickle tornado_</div><span class="btn">It's really me</span></div>
+    </div>
+    <div class="step"><h3><span>2</span>Pick your color</h3><div class="sw" id="swatches"></div></div>
+    <div class="step"><h3><span>3</span>Pick your font</h3><div class="fonts" id="fonts"></div></div>
+    <div class="step"><h3><span>4</span>Lookin' good</h3>
+      <div class="preview"><span class="nm" style="--mc:#ff3fa4;--mf:Creepster">Katie</span><span style="color:#fff">has signed on. 🚪</span><span class="btn">Enter Game Club</span></div>
+    </div>
+  </section>
+</main>
+
+<script>
+
+// Members: chosen color + chosen font (+ size tweak so every font reads about the same size)
+const M={
+ Hannah:{c:"#ff8a1c",f:"'Rock Salt'",s:.72},
+ Katie:{c:"#ff3fa4",f:"Creepster",s:1.05},
+ Junior:{c:"#3fe0ff",f:"'Press Start 2P'",s:.58},
+ Matt:{c:"#a77bff",f:"'Metal Mania'",s:1.05},
+ Kalon:{c:"#ffe53f",f:"'Permanent Marker'",s:.9},
+ Sarah:{c:"#ff4b4b",f:"Monoton",s:.85},
+ Anthony:{c:"#3dffb5",f:"'Black Ops One'",s:.92},
+ Michael:{c:"#4d8bff",f:"'Rubik Glitch'",s:.92},
+ Kat:{c:"#ff8ad8",f:"UnifrakturMaguntia",s:1.05},
+ Giselle:{c:"#b8ff3d",f:"'Sedgwick Ave Display'",s:1.05}
+};
+const nm=(n)=>`<span class="nm" style="--mc:${M[n].c};--mf:${M[n].f};--fs:${M[n].s}">${n}</span>`;
+
+// Heat tiers: two animation frames each
+const tiers=[
+ {k:"ICE COLD",a:"🥶",b:"🧊",rule:"0 🔥"},
+ {k:"MEH",a:"😐",b:"😑",rule:"under 10% of the heat"},
+ {k:"WARMING UP",a:"😏",b:"😉",rule:"10–20%"},
+ {k:"HOT",a:"🥵",b:"😩",rule:"20–30%"},
+ {k:"ON FIRE",a:"🔥",b:"🥵",rule:"over 30%"}
+];
+const games=[
+ {t:"Tiny Tax Office",by:"Anthony",c1:"#2c6e2f",c2:"#0b2a0c",art:"🧾",h:3,heat:4,say:"trust me"},
+ {t:"Moon Moles",by:"Katie",c1:"#3b1d8f",c2:"#0b0b2e",art:"🌙",h:4,heat:2,say:"cutest game ever"},
+ {t:"Sock Puppet Heist",by:"Michael",c1:"#5b2a86",c2:"#1b0b2e",art:"🧦",h:5,heat:7,say:"heist!!!"},
+ {t:"Haunted Mall",by:"Giselle",c1:"#0f6b57",c2:"#062420",art:"👻",h:7,heat:9,mine:2,say:"so scary omg"},
+ {t:"Pizza Knight II",by:"Junior",c1:"#ff6a00",c2:"#b3001b",art:"🍕",h:6,heat:5,mine:1,say:"better than 1"},
+ {t:"Gravy Golf",by:"Hannah",c1:"#8a5a2b",c2:"#2b1608",art:"⛳",h:9,heat:0,say:"just this once ❤"}
+];
+const rows=[
+ {name:"Under 5 hrs",cc:"#0a5fd8",f:g=>g.h<5},
+ {name:"5–8 hrs",cc:"#1f9d2f",f:g=>g.h>=5&&g.h<=8,empty:true},
+ {name:"8–10 hrs · just this once ❤",cc:"#c2189b",f:g=>g.h>8}
+];
+const total=games.reduce((a,g)=>a+g.heat,0);
+const tierOf=h=>{if(!h)return 0;const p=h/total;return p<.1?1:p<.2?2:p<.3?3:4};
+const flip=t=>`<span class="flip"><b>${t.a}</b><b>${t.b}</b></span>`;
+const tilts=["-2deg","1.5deg","-1deg","2.5deg","-2.5deg","1deg"];
+let k=0;
+const cell=g=>{
+  const ti=tierOf(g.heat),t=tiers[ti],pct=Math.round(g.heat/total*100);
+  return `<div class="cell" style="--mc:${M[g.by].c}">
+    <div class="case" style="--c1:${g.c1};--c2:${g.c2}">
+      <div class="cover"><div class="band">GAME CLUB</div><div class="ttl">${g.t}</div><span class="art">${g.art}</span><span class="hrs">${g.h}<small>HRS</small></span></div>
+      <span class="sticker t${ti}">${flip(t)}</span>
+      <span class="price">🔥${g.heat} · ${pct}%</span>
+      ${g.mine?`<span class="mine ${g.mine===1?"one":""}">${g.mine===2?"your big<br>vote ×2":"your +1"}</span>`:""}
+    </div>
+    <div class="edge"></div>
+    <div class="talker" style="--r:${tilts[k++%tilts.length]}"><div class="hd">★ CLUB PICK ★</div><span class="who">${g.by}</span><span class="say">${g.say}</span></div>
+  </div>`;
+};
+// one slot per member: 10 slots, two shelves of 5
+const emptyCell=n=>`<div class="cell empty"><div class="case">${n==="Matt"?"+ Matt, throw yours up!":`${n}'s spot`}</div><div class="edge"></div></div>`;
+document.getElementById("glass").innerHTML=`<div class="items">${games.map(cell).join("")}${["Matt","Sarah","Kalon","Kat"].map(emptyCell).join("")}</div>`;
+document.getElementById("legend").innerHTML=tiers.map((t,i)=>`<div><span class="t${i}" style="font-size:18px">${flip(t)}</span><b>${t.k}</b><span style="color:#a3a8c8">${t.rule}</span></div>`).join("");
+
+// Buddy list
+const on=["Matt","Katie","Junior","Hannah"],away=[["Kalon","brb pizza"]],off=["Giselle","Michael","Anthony","Sarah","Kat"];
+document.getElementById("here").innerHTML=`<span class="lbl">here now (${on.length}/10):</span> ${on.map(nm).join(" ")}`;
+
+// Chat room
+const chat=[
+ ["4:02 PM",null,"🚪 Hannah has entered the room."],
+ ["4:03 PM","Katie","haunted mall is like 7 hrs we HAVE to"],
+ ["4:03 PM","Junior","pizza knight 2 > pizza knight 1 dont @ me"],
+ ["4:05 PM","Hannah","gravy golf was 9 hrs and the site said it loves me so"],
+ ["4:06 PM","Matt","round 1 closes friday!! spend ur 🔥"],
+ ["4:07 PM",null,"🚪 Kalon has left the room."],
+ ["4:08 PM","Katie","kalon backed out AGAIN 💀"]
+];
+document.getElementById("log").innerHTML=chat.map(([ts,w,t])=>w?`<p><span class="ts">(${ts})</span>${nm(w)}<span class="msg">: ${t}</span></p>`:`<p class="sys"><span class="ts">(${ts})</span>${t}</p>`).join("");
+
+// Ticker: stupid but true. Constant slow speed no matter how many facts.
+const facts=[
+ "Mario was originally called Jumpman.",
+ "Mario got a mustache because it was easier to draw in a few pixels than a mouth.",
+ "Pac-Man was Puck Man in Japan. It was renamed in the US so vandals couldn't change the P to an F.",
+ "Nintendo was founded in 1889. It made playing cards.",
+ "Space Invaders speeds up as you shoot aliens because the hardware has fewer of them to draw.",
+ "Atari buried a pile of E.T. cartridges in a New Mexico landfill. People dug them up in 2014.",
+ "Crash Bandicoot's joke working title at the studio was \"Sonic's Ass Game.\"",
+ "A Game Boy that got burned in a bombing during the Gulf War still turns on.",
+ "Pac-Man's ghosts are named Blinky, Pinky, Inky and Clyde.",
+ "The Wii was code-named Revolution."
+];
+const tk=document.getElementById("facts");
+tk.innerHTML=facts.join("<em>★</em>");
+const pace=()=>{tk.style.animationDuration=Math.max(60,tk.scrollWidth/38)+"s"};
+pace();document.fonts&&document.fonts.ready.then(pace);
+
+// Setup: palette + fonts
+const palette=[["Toxic Lime","#b8ff3d","Giselle"],["Hot Pink","#ff3fa4"],["Electric Cyan","#3fe0ff","Junior"],["Blaze Orange","#ff8a1c","Hannah"],["Laser Lemon","#ffe53f","Kalon"],["Ultraviolet","#a77bff","Matt"],["Blood Red","#ff4b4b"],["Mint Rush","#3dffb5"],["Bubblegum","#ff8ad8"],["Plasma Blue","#4d8bff"],["Acid Teal","#18e0c8"],["Sunset Coral","#ff7a6b"],["Lavender Haze","#d0a8ff"],["Gold Rush","#ffc21f"]];
+document.getElementById("swatches").innerHTML=palette.map(([n,c,by])=>`<div class="${by?"taken":""}${n==="Hot Pink"?" pick":""}" ${by?`data-by="${by}'s"`:""} style="--c:${c}"><i></i>${n}</div>`).join("");
+const fonts=[["Creepster","Creepster",1.05],["Metal Mania","'Metal Mania'",1.05],["Rock Salt","'Rock Salt'",.72],["Permanent Marker","'Permanent Marker'",.9],["Press Start 2P","'Press Start 2P'",.58],["Black Ops One","'Black Ops One'",.92],["Rubik Glitch","'Rubik Glitch'",.92],["UnifrakturMaguntia","UnifrakturMaguntia",1.05],["Sedgwick Ave Display","'Sedgwick Ave Display'",1.05],["Monoton","Monoton",.85]];
+document.getElementById("fonts").innerHTML=fonts.map(([n,f,s])=>`<div class="${n==="Creepster"?"pick":""}"><span class="nm" style="--mf:${f};--fs:${s}">Katie</span><small>${n}</small></div>`).join("");
+</script>
