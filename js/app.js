@@ -215,7 +215,6 @@ function renderNav() {
     : h("button", { type: "button", class: "btn on", onclick: openLogin }, "Sign in"));
   nav.replaceChildren(...items);
   const max = Number(S.round?.max_hours || 8);
-  $("round-tag").textContent = `games under ${max} hrs`;
   $("round-badge").textContent = `Under ${max} hrs`;
 }
 
