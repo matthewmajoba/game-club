@@ -24,7 +24,7 @@ button{font:inherit;color:inherit}
 /* header */
 .hdr{--fill:radial-gradient(120% 90% at 50% 0,#1d1648,var(--panel) 70%);display:grid;justify-items:center;gap:8px;padding:18px 10px 14px}
 .logo{margin:0;font:900 clamp(44px,10vw,84px)/.95 Impact,"Arial Black",sans-serif;letter-spacing:2px;background:linear-gradient(#fffbd0,#ffe53f 25%,#ff9a00 55%,#ff2d55 85%);-webkit-background-clip:text;background-clip:text;color:transparent;transform:skewX(-10deg) scaleY(1.12);filter:drop-shadow(0 0 1px #fff) drop-shadow(2px 2px 0 #7a1030) drop-shadow(4px 4px 0 #3a0820) drop-shadow(6px 6px 0 #1a0010) drop-shadow(0 0 18px rgba(255,80,0,.55));text-align:center}
-.tagline{color:var(--lime);font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;text-align:center}
+.tagline{margin-top:14px;color:var(--lime);font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;text-align:center}
 .nav{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
 .btn{background:var(--bevel);border:3px outset var(--bevel-hi);color:#ffe53f;font:700 12px var(--ui);padding:5px 11px;cursor:pointer;text-decoration:none;display:inline-block}
 .btn:active,.btn.on{border-style:inset;background:var(--bevel-lo)}
@@ -35,7 +35,7 @@ button{font:inherit;color:inherit}
 
 /* ticker */
 .ticker{display:flex;background:#000;border:3px solid #000;outline:2px solid #3a0010;overflow:hidden}
-.ticker .lbl{flex:none;background:linear-gradient(#e0182d,#8e0a18);color:#fff;font:400 13px Bungee,sans-serif;padding:6px 10px;display:flex;align-items:center;gap:6px}
+.ticker .lbl{flex:none;background:linear-gradient(#e0182d,#8e0a18);color:#ffe53f;font:400 21px/1 Bangers,Impact,sans-serif;letter-spacing:.06em;text-shadow:2px 2px 0 #000;padding:5px 12px 4px;display:flex;align-items:center;gap:7px;transform:rotate(-2deg);margin:-2px 0 -2px -2px;box-shadow:2px 0 0 #000}
 .ticker .lbl i{width:8px;height:8px;border-radius:50%;background:#fff;animation:pulse 1s steps(1) infinite}
 @keyframes pulse{50%{opacity:0}}
 .ticker .run{overflow:hidden;white-space:nowrap;flex:1;display:flex;align-items:center}
