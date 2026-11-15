@@ -58,8 +58,14 @@ const member = (id) => S.members.find((m) => m.id === id);
 const fmtTime = (t) => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 const fmtDay = (t) => new Date(t).toLocaleDateString([], { month: "short", day: "numeric" });
 
+// If a name we don't know shows up (member list still loading or out of date),
+// reload the member list instead of ever showing a placeholder name.
+let membersReloading = null;
+function reloadMembersSoon() {
+  if (!membersReloading) membersReloading = loadMembers().then(renderAll).finally(() => { membersReloading = null; });
+}
 function nameEl(m, cls = "nm") {
-  if (!m) return h("span", { class: cls }, "someone");
+  if (!m) { reloadMembersSoon(); return h("span", { class: cls }, "…"); }
   return h("span", { class: cls, vars: { "--mc": m.color || "#fff", "--mf": m.font ? `'${m.font}'` : "var(--ui)", "--fs": String(FONTS[m.font] || 0.85) } }, m.name);
 }
 const flip = (t) => h("span", { class: "flip" }, h("b", null, t.a), h("b", null, t.b));
@@ -307,12 +313,14 @@ function renderHere() {
 function msgEl(m) {
   const ts = h("span", { class: "ts" }, `(${fmtTime(m.created_at)})`);
   if (m.kind !== "chat") return h("p", { class: "sys" }, ts, m.body);
-  return h("p", null, ts, nameEl(member(m.member_id)), h("span", { class: "msg" }, ": ", m.body));
+  const who = member(m.member_id);
+  if (!who) { reloadMembersSoon(); return null; } // show it once we know who wrote it
+  return h("p", null, ts, nameEl(who), h("span", { class: "msg" }, ": ", m.body));
 }
 function renderChat() {
   const log = $("chatlog");
   const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
-  log.replaceChildren(...S.messages.map(msgEl));
+  log.replaceChildren(...S.messages.map(msgEl).filter(Boolean));
   if (nearBottom || !log.dataset.ready) { log.scrollTop = log.scrollHeight; log.dataset.ready = "1"; }
 }
 function renderSend() {
@@ -632,7 +640,7 @@ function openAdmin() {
     pending.length ? h("div", null, pending.map((g) => h("div", { class: "row" }, h("span", null, `${g.title} (${member(g.member_id)?.name})`),
       h("button", { type: "button", class: "btn", onclick: () => openGame(g.id) }, "Check it")))) : h("span", null, "Nothing waiting."),
     h("h3", null, "End this round"), h("label", null, "Name of the next round: ", nextName), box,
-    h("small", null, "New codes for someone? Ask Claude to run scripts/set_codes.py with their name."));
+    h("small", null, "Need a new code for a member? Ask Claude to run scripts/set_codes.py with their name."));
 }
 
 // ---------- fun stuff ----------
@@ -665,11 +673,12 @@ let room = null;
 function setupPresence() {
   room = sb.channel("room", { config: { presence: { key: "tab-" + Math.random().toString(36).slice(2) } } });
   room.on("presence", { event: "sync" }, () => {
+    // only real members count; visitors never track, and anything else is ignored
     const now = new Set();
-    for (const metas of Object.values(room.presenceState())) for (const m of metas) if (m.member_id) now.add(m.member_id);
+    for (const metas of Object.values(room.presenceState())) for (const m of metas) if (member(m.member_id)) now.add(m.member_id);
     if (S.hereReady) {
-      for (const id of now) if (!S.here.has(id)) { addLocalLine(`🚪 ${member(id)?.name || "Someone"} has entered the room.`); doorOpen(); }
-      for (const id of S.here) if (!now.has(id)) { addLocalLine(`🚪 ${member(id)?.name || "Someone"} has left the room.`); doorClose(); }
+      for (const id of now) if (!S.here.has(id)) { addLocalLine(`🚪 ${member(id).name} has entered the room.`); doorOpen(); }
+      for (const id of S.here) if (!now.has(id) && member(id)) { addLocalLine(`🚪 ${member(id).name} has left the room.`); doorClose(); }
     }
     S.here = now; S.hereReady = true; renderHere();
   });
