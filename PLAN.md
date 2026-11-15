@@ -108,7 +108,11 @@ Hannah, Junior, Katie, Sarah, Anthony, Giselle, Michael, Kat, Kalon, Matt (admin
   site (`index.html`, `css/`, `js/`), member codes (`scripts/set_codes.py` → `member-codes.txt`, gitignored).
 - Tested end to end with a temporary "Tester" member (deleted afterward): 23 API rule checks pass;
   sign-in, add game, voting, notes, back-out + sass, log, chat counter and phone layout checked in a browser.
-- **Not done yet:** hosting on Vercel (needs a Vercel account via "Continue with GitHub").
+- **Live:** https://game-club-mauve.vercel.app (Vercel, imported from GitHub; every push to `main`
+  redeploys). `.vercelignore` keeps secrets, mockups, scripts and supabase/ off the live site.
+- Link previews: `img/og-image.jpg` + Open Graph tags in `index.html` (absolute URLs use the
+  address above; update them if the domain changes). Icons + `site.webmanifest` for home screens.
+  Rebuild images with `python scripts/make_share_images.py`.
 - Known gap: Steam search can show adult-only games in results; nothing filters them yet.
 - Re-deploy after changes: `npx supabase db push` (new migration file) and
   `npx supabase functions deploy games --no-verify-jwt --use-api`.
