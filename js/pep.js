@@ -297,7 +297,13 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   const stageEl = h("div", { class: "smash-stage" }, h("span", { class: "pool", "aria-hidden": "true" }), fxBack, wrap, fxFront);
   const cells = h("span", { class: "cells", "aria-hidden": "true" });
   const mcCv = h("canvas", { class: "mc-gl", "aria-hidden": "true" });
-  const frameEl = h("span", { class: "mc" }, cells, mcCv);
+  // the counter sits in an enchanted carved-wood plaque: glowing runes, brass studs, fireflies
+  const RUNES = "ᚠ ᛚ ᛟ ᚹ ᛖ ᚱ ✦ ᛞ ᚨ ᛁ ᛚ ᛃ";
+  const frameEl = h("span", { class: "mc" },
+    h("span", { class: "rune t", "aria-hidden": "true" }, RUNES),
+    h("span", { class: "well" }, cells, mcCv),
+    h("span", { class: "rune b", "aria-hidden": "true" }, [...RUNES].reverse().join("")),
+    ...[1, 2, 3, 4].map((i) => h("i", { class: `ff f${i}`, "aria-hidden": "true" })));
   const srCount = h("span", { class: "sr" });
   const counter = h("div", { class: "hits", role: "status" }, frameEl, h("small", { "aria-hidden": "true" }, "likes"), srCount);
   const smash = h("div", { class: "smash" }, stageEl, counter);

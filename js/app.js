@@ -208,7 +208,7 @@ function renderNav() {
   const items = [
     h("button", { type: "button", class: "btn blue", onclick: openLog }, "📜 Log"),
     h("button", { type: "button", class: "btn", onclick: openHof }, "🏆 Hall of Fame"),
-    h("button", { type: "button", class: "btn pink", onclick: openLoveNotes }, "💌 Love Notes"),
+    h("button", { type: "button", class: "btn pink", onclick: openLoveNotes }, "🔮 Crystal Ball of Encouragement and Love"),
     h("button", { type: "button", class: "btn", onclick: openRules }, "Rules"),
   ];
   if (S.me?.is_admin) items.push(h("button", { type: "button", class: "btn pink", onclick: openAdmin }, "⚙ Admin"));
@@ -613,15 +613,15 @@ function openHof() {
     g.cover_url ? coverImg(g) : h("div", { class: "marker" }, g.title), h("b", null, g.title), h("span", null, "picked by ", member(g.member_id)?.name || "?"))))
     : h("p", null, "No winners yet. Go put some games on the shelf!"));
 }
-// Love Notes: every finished day's saying and how many likes it got (saved at midnight Pacific)
+// Crystal Ball of Encouragement and Love: every finished day's saying and how many likes it got (saved at midnight Pacific)
 async function openLoveNotes() {
-  const body = dialog("💌 Love Notes", { wide: true });
+  const body = dialog("🔮 Crystal Ball of Encouragement and Love", { wide: true });
   const list = h("div", { class: "lnotes" }, "loading...");
   body.append(list);
   try { await rpc("archive_love_notes", {}); } catch { /* still show what's saved */ }
   const { data } = await sb.from("love_notes").select("day,body,likes").order("day", { ascending: false });
   const notes = data || [];
-  if (!notes.length) { list.replaceChildren(h("p", null, "No Love Notes yet. Today's gets saved at midnight, so go like it!")); return; }
+  if (!notes.length) { list.replaceChildren(h("p", null, "Nothing saved yet. Today's saying gets saved at midnight, so go give the crystal ball some love!")); return; }
   const best = Math.max(...notes.map((n) => n.likes));
   const pretty = (d) => new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
   list.replaceChildren(...notes.map((n) => h("div", { class: "lnote" + (best > 0 && n.likes === best ? " top" : "") },

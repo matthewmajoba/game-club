@@ -122,7 +122,7 @@ Hannah, Junior, Katie, Sarah, Anthony, Giselle, Michael, Kat, Kalon, Matt (admin
   (every ~7 s, and a tap brings up LIKE), each dissolving into / forming out of the fog. Taps
   charge the ball: brighter, faster swirl, energy strands spiralling out, orbit rings at high
   charge, and a spark flies to the counter per like. No breaking, no prompts.
-- **Love Notes** (migration `20261116030000_love_notes.sql`, header button): every finished day's
+- **Crystal Ball of Encouragement and Love** (saved notes; migration `20261116030000_love_notes.sql`, 🔮 header button): every finished day's
   saying + total likes, saved in `public.love_notes`. Saved lazily by `archive_love_notes()` when
   anyone opens Love Notes (finished days can't change, so late saving is still exact).
 - Re-deploy after changes: `npx supabase db push` (new migration file) and

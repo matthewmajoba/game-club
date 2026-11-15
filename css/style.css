@@ -248,11 +248,11 @@ textarea{resize:vertical;min-height:44px}
 .dude.f3{transform:rotate(-3deg) translateY(-4px)}.dude.f3 .arm{transform:rotate(-100deg)}
 
 /* ---------- daily saying + like button ---------- */
-.pep{--fill:radial-gradient(120% 160% at 0 0,#3a0f4d,#140a2a 45%,#0a0a18 75%);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px 20px;padding:12px 18px 12px 22px}
+.pep{--fill:radial-gradient(120% 160% at 50% 0,#3a0f4d,#140a2a 45%,#0a0a18 75%);display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;text-align:center;gap:4px;padding:14px 18px 10px}
 .pep-quote{margin:0;font:400 clamp(20px,2.6vw,28px)/1.22 var(--sharpie);color:#fff;text-shadow:3px 3px 0 #6d0f45,0 0 20px rgba(255,31,142,.3);text-wrap:balance;overflow-wrap:anywhere}
 .pep-quote::before{content:"\201C";color:#ffe53f;margin-right:.08em}
 .pep-quote::after{content:"\201D";color:#ffe53f;margin-left:.04em}
-.smash{--charge:0;position:relative;display:flex;align-items:center;gap:16px}
+.smash{--charge:0;position:relative;display:flex;align-items:center;gap:30px}
 .smash-stage{position:relative;width:110px;height:104px;flex:none}
 .smash-fx{position:absolute;left:-145px;top:-148px;width:400px;height:400px;pointer-events:none}
 .smash-fx.back{z-index:1}
@@ -280,27 +280,55 @@ textarea{resize:vertical;min-height:44px}
 @keyframes levitate{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 @keyframes pool{0%,100%{transform:scaleX(1);opacity:.9}50%{transform:scaleX(.82);opacity:.55}}
 
-/* like counter: a magic hit counter (the tiles are a WebGL shader in js/pep.js) */
-@property --mca{syntax:"<angle>";inherits:false;initial-value:0deg}
-.hits{display:grid;justify-items:center;gap:6px;position:relative}
-.hits .mc{position:relative;display:block;padding:4px;border-radius:10px;border:1.5px solid transparent;
-  background:linear-gradient(#10072a,#05020e) padding-box,conic-gradient(from var(--mca),#ff8ad8,#b78cff,#7af0ff,#ffe58a,#ff8ad8) border-box;
-  box-shadow:0 0 calc(10px + var(--charge)*20px) calc(1px + var(--charge)*5px) rgba(190,120,255,calc(.45 + var(--charge)*.4)),
-             0 0 calc(26px + var(--charge)*30px) rgba(255,80,200,calc(.16 + var(--charge)*.25)),
-             inset 0 0 12px rgba(150,80,255,.35);
-  animation:mcspin 6s linear infinite}
-@keyframes mcspin{to{--mca:360deg}}
+/* like counter: magic glass tiles (a WebGL shader in js/pep.js) set into an enchanted carved-wood
+   plaque with glowing runes, brass studs, a breathing aura and fireflies */
+.hits{display:grid;justify-items:center;gap:6px;position:relative;isolation:isolate}
+.hits::before{content:"";position:absolute;inset:-14px -18px -6px;z-index:-1;border-radius:50%;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(170,90,255,calc(.32 + var(--charge)*.35)),rgba(255,80,200,calc(.1 + var(--charge)*.15)) 60%,rgba(0,0,0,0));
+  animation:breathe 3.6s ease-in-out infinite}
+@keyframes breathe{0%,100%{opacity:.6;transform:scale(.94)}50%{opacity:1;transform:scale(1.04)}}
+.hits .mc{position:relative;display:block;padding:15px 11px;border-radius:12px;border:2px solid #1a0c04;
+  background:
+    radial-gradient(circle at 7px 7px,#ffe7a8 0 1.2px,#b8862e 1.8px 2.8px,#4a2a0c 3.3px,transparent 3.8px),
+    radial-gradient(circle at calc(100% - 7px) 7px,#ffe7a8 0 1.2px,#b8862e 1.8px 2.8px,#4a2a0c 3.3px,transparent 3.8px),
+    radial-gradient(circle at 7px calc(100% - 7px),#ffe7a8 0 1.2px,#b8862e 1.8px 2.8px,#4a2a0c 3.3px,transparent 3.8px),
+    radial-gradient(circle at calc(100% - 7px) calc(100% - 7px),#ffe7a8 0 1.2px,#b8862e 1.8px 2.8px,#4a2a0c 3.3px,transparent 3.8px),
+    linear-gradient(180deg,rgba(255,205,150,.16),rgba(0,0,0,0) 40%,rgba(0,0,0,.35)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='90'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.011 .36' numOctaves='4' seed='7'/%3E%3CfeColorMatrix values='.62 0 0 0 0 .33 0 0 0 0 .15 0 0 0 0 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='220' height='90' filter='url(%23w)'/%3E%3C/svg%3E") 0 0/220px 90px,
+    #3a1f0e;
+  box-shadow:inset 0 1px 0 rgba(255,214,160,.35),inset 0 -2px 4px rgba(0,0,0,.6),inset 0 0 14px rgba(120,40,200,calc(.18 + var(--charge)*.3)),
+             0 3px 0 #120700,0 6px 12px rgba(0,0,0,.6),
+             0 0 calc(12px + var(--charge)*22px) calc(1px + var(--charge)*5px) rgba(190,120,255,calc(.42 + var(--charge)*.42))}
+/* recessed window with a thin gold inlay that the glass tiles sit in */
+.hits .well{display:block;padding:3px;border-radius:7px;background:#06020e;
+  box-shadow:inset 0 2px 6px #000,0 0 0 1px #c9a14a,0 0 0 2px #2a1507,0 1px 0 3px rgba(255,220,170,.14)}
 .hits .mc-gl{display:none;width:120px;height:30px}
 .hits .mc.gl .mc-gl{display:block}
 .hits .mc.gl .cells{display:none}
+/* glowing runes carved into the wood above and below */
+.hits .rune{position:absolute;left:0;right:0;text-align:center;white-space:nowrap;pointer-events:none;
+  font:700 8.5px/1 "Noto Sans Runic","Segoe UI Historic","Segoe UI Symbol",serif;letter-spacing:2.6px;color:#f1d8ff;
+  text-shadow:0 1px 0 rgba(255,220,170,.18),0 0 3px #c47bff,0 0 8px rgba(255,90,210,calc(.5 + var(--charge)*.5));
+  animation:runes 3.2s ease-in-out infinite}
+.hits .rune.t{top:3px}
+.hits .rune.b{bottom:3px;animation-delay:1.6s}
+@keyframes runes{0%,100%{opacity:.45;filter:brightness(.9)}50%{opacity:1;filter:brightness(1.35)}}
+/* fireflies drifting around the plaque */
+.hits .ff{position:absolute;width:4px;height:4px;border-radius:50%;pointer-events:none;background:#fff6c4;
+  box-shadow:0 0 4px 1px #ffe27a,0 0 10px 2px rgba(255,200,90,.55);opacity:0;animation:firefly 5.5s ease-in-out infinite}
+.hits .ff.f1{left:-8px;top:10px}
+.hits .ff.f2{right:-10px;top:-4px;animation-duration:6.4s;animation-delay:1.2s;background:#f3d6ff;box-shadow:0 0 4px 1px #d9a0ff,0 0 10px 2px rgba(200,120,255,.55)}
+.hits .ff.f3{left:30%;bottom:-10px;animation-duration:7s;animation-delay:2.5s}
+.hits .ff.f4{right:12%;bottom:-6px;animation-duration:5s;animation-delay:3.6s;background:#d8f6ff;box-shadow:0 0 4px 1px #8fe8ff,0 0 10px 2px rgba(120,220,255,.5)}
+@keyframes firefly{0%{opacity:0;transform:translate(0,0)}20%{opacity:1}50%{transform:translate(9px,-10px)}70%{opacity:.8}100%{opacity:0;transform:translate(-6px,-20px)}}
 /* plain digits until the shader is ready (or without WebGL), still a little magic */
 .hits .cells{display:flex;gap:2px}
 .hits .cells b{display:block;width:18px;height:30px;border-radius:5px;font:400 17px/30px Bungee,Verdana,sans-serif;text-align:center;color:#fff;
   background:radial-gradient(120% 90% at 50% 20%,#3a1670,#12062a 70%);box-shadow:inset 0 0 0 1px rgba(200,150,255,.45);text-shadow:0 0 6px #d58cff,0 0 2px #fff}
-/* twinkling stars on the frame */
+/* twinkling stars on the plaque's corners */
 .hits .mc::before,.hits .mc::after{content:"\2726";position:absolute;font-size:11px;line-height:1;color:#fff;text-shadow:0 0 6px #ff8ad8,0 0 12px #b78cff;pointer-events:none;animation:twinkle 2.8s ease-in-out infinite}
-.hits .mc::before{top:-7px;left:-6px}
-.hits .mc::after{bottom:-7px;right:-6px;animation-delay:1.4s}
+.hits .mc::before{top:-8px;left:-7px}
+.hits .mc::after{bottom:-8px;right:-7px;animation-delay:1.4s}
 @keyframes twinkle{0%,100%{opacity:.15;transform:scale(.55) rotate(0)}50%{opacity:1;transform:scale(1.15) rotate(45deg)}}
 .hits small{font:400 11px/1 Bungee,var(--ui);letter-spacing:.24em;padding-left:.24em;text-transform:uppercase;
   background:linear-gradient(90deg,#ff8ad8,#b78cff,#7af0ff,#ffe58a,#ff8ad8,#b78cff) 0 0/200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
@@ -320,8 +348,8 @@ textarea{resize:vertical;min-height:44px}
 .lnote .crown{position:absolute;right:8px;top:-10px;background:#ffcc00;color:#000;font:900 10px Arial,sans-serif;padding:3px 6px;transform:rotate(4deg);box-shadow:1px 1px 0 #000}
 
 @media (max-width:760px){
-  .pep{grid-template-columns:minmax(0,1fr);padding:12px 12px 10px;text-align:center}
-  .smash{justify-self:center}
+  .pep{padding:12px 12px 10px}
+  .smash{gap:18px}
 }
 @media (max-width:820px){body.tab-chat .pep{display:none}}
 
