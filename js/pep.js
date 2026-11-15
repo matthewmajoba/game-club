@@ -172,9 +172,10 @@ function likeTexture(size = 256) {
 }
 
 // ---------- the magic counter shader ----------
-// Six little glass tiles, each with its own swirl of iridescent fog, glitter and a rainbow rim.
-// Digits come from an atlas (R sharp, G glow); when a digit changes the old one dissolves into
-// the fog and the new one forms out of it (uProg 0 -> 1), and that tile flares as it lands.
+// One dark recessed window (no separate tiles) with a slow violet mist and drifting firefly glints.
+// Digits are made of twigs (a 7-segment display built from crossed, lashed sticks) with a soft magic
+// glow. When a digit changes, its old twigs burn away with glowing embers and the new ones grow in
+// with a green-gold sprout glow (uProg 0 -> 1).
 const MC_FRAG = `precision highp float;
 varying vec2 vUv;
 uniform vec2 uRes;
@@ -182,69 +183,102 @@ uniform float uTime, uFlow, uCharge, uPulse;
 uniform float uCur[6], uPrev[6], uProg[6];
 uniform sampler2D uTex;
 ${NOISE}
-float sdBox(vec2 p, vec2 b, float r){ vec2 q = abs(p) - b + r; return length(max(q,0.0)) + min(max(q.x,q.y),0.0) - r; }
-vec2 slot(float dg, vec2 g){ return vec2((dg + clamp(g.x,0.0,1.0))/10.0, clamp(g.y,0.0,1.0)); }
+vec4 twig(float dg, vec2 g){ g = clamp(g, 0.004, 0.996); return texture2D(uTex, vec2((dg + g.x)/10.0, 0.5 + g.y*0.5)); }
+float twigGlow(float dg, vec2 g){ g = clamp(g, 0.004, 0.996); return texture2D(uTex, vec2((dg + g.x)/10.0, g.y*0.5)).r; }
 void main(){
   vec2 px = vUv*uRes;
-  float cw = uRes.x/6.0, gap = uRes.y*0.09;
+  float cw = uRes.x/6.0;
   float fi = clamp(floor(px.x/cw), 0.0, 5.0);
-  vec2 lc = vec2(px.x - (fi + 0.5)*cw, px.y - uRes.y*0.5);
-  vec2 hb = vec2(cw*0.5 - gap*0.5, uRes.y*0.5 - 0.5);
-  float sd = sdBox(lc, hb, uRes.y*0.17);
-  float inside = 1.0 - smoothstep(-0.8, 0.8, sd);
-  if (inside <= 0.0) { gl_FragColor = vec4(0.0); return; }
+  vec2 c = vec2((px.x - (fi + 0.5)*cw)/(cw*0.5), (px.y - uRes.y*0.5)/(uRes.y*0.5));   // -1..1 per digit
   float cur = 0.0, prv = 0.0, prog = 1.0;
   for (int i = 0; i < 6; i++) { if (abs(fi - float(i)) < 0.5) { cur = uCur[i]; prv = uPrev[i]; prog = uProg[i]; } }
-  vec2 c = lc/hb;                                                     // -1..1 inside the tile
   float T = uFlow;
-  vec3 P = vec3(c*vec2(0.8,1.2) + vec2(fi*2.3, 0.0), T*0.4);
-  vec2 w = vec2(fbm3(P), fbm3(P + vec3(3.1,1.7,5.3)));
-  float d = fbm3(P + vec3(w*1.6, T*0.25));
-  vec3 iri = pal(d*1.4 + w.x*0.8 + fi*0.11 + uTime*0.05);
-  float fog = smoothstep(0.3, 0.85, d);
-  vec3 col = mix(vec3(0.06,0.015,0.14), iri*0.62, fog*0.72);
-  vec2 g = c*0.5 + 0.5 + (w - 0.5)*0.025;                              // digits drift a hair with the fog
-  vec4 gc = texture2D(uTex, slot(cur, g)), gp = texture2D(uTex, slot(prv, g));
-  float dn = fbm3(vec3(c*vec2(1.6,2.4) + w*0.8, uTime*0.3 + fi*3.7));
+  vec2 q = vUv*vec2(6.0, 1.5);
+  float m = fbm3(vec3(q + vec2(T*0.15, 0.0), T*0.2));
+  vec3 col = mix(vec3(0.03,0.012,0.055), vec3(0.2,0.07,0.32), smoothstep(0.35,0.9,m)*0.75);   // violet mist
+  col += vec3(1.0,0.88,0.55)*glitter(q*vec2(3.0,6.0) + vec2(T*0.2, 0.0), uTime*1.2, 0.16)*0.7;   // firefly glints
+  vec2 g = c*vec2(0.58,0.54) + 0.5;                                    // a little room between digits
+  float dn = fbm3(vec3(c*vec2(1.6,2.4), uTime*0.3 + fi*3.7));
   float outV = 1.0 - smoothstep(0.0, 0.55, prog), inV = smoothstep(0.3, 1.0, prog);
   float to = mix(-0.05,1.05,outV), ti = mix(-0.05,1.05,inV);
   float oR = 1.0 - smoothstep(to-0.07, to+0.07, dn), nR = 1.0 - smoothstep(ti-0.07, ti+0.07, dn);
-  float shape = max(gc.r*nR, gp.r*oR), glow = max(gc.g*nR, gp.g*oR);
-  float edge = smoothstep(0.09,0.0,abs(dn-ti))*sin(3.14159*inV)*max(gc.r, gc.g*0.5)
-             + smoothstep(0.09,0.0,abs(dn-to))*sin(3.14159*outV)*max(gp.r, gp.g*0.5);
-  float sweep = fract(uTime*0.16)*1.9 - 0.45;                          // pearly sheen sweeping across
+  vec4 sn = twig(cur, g), so = twig(prv, g);
+  float gn = twigGlow(cur, g), go = twigGlow(prv, g);
+  float aN = sn.a*nR, aO = so.a*oR, glow = max(gn*nR, go*oR);
+  vec3 magic = mix(vec3(0.72,0.35,1.0), vec3(1.0,0.42,0.78), 0.5 + 0.5*sin(uTime*0.7 + fi));
+  col += magic*glow*(0.5 + uCharge*0.6)*(0.8 + 0.2*sin(uTime*2.0 + fi*0.9));   // magic glow around the twigs
+  float sweep = fract(uTime*0.16)*1.9 - 0.45;
   float sheen = exp(-pow((vUv.x + c.y*0.07 - sweep)*8.0, 2.0));
-  vec3 digit = mix(vec3(1.0,0.96,1.0), pal(vUv.x*0.7 + uTime*0.06 + 0.15), 0.3) + sheen*0.55;
-  col *= 1.0 - 0.5*glow*(1.0 - shape);                                 // dark halo so digits read
-  col = mix(col, digit, shape);
-  col += mix(vec3(0.95,0.45,1.0), iri, 0.4)*glow*(0.45 + uCharge*0.5);
-  col += pal(dn*3.0 + uTime*0.3)*edge*1.6;                             // ember edges as digits change
-  float fresh = 1.0 - prog;
-  col += vec3(1.0,0.8,1.0)*fresh*fresh*0.6*(1.0 - 0.4*length(c));      // the tile that just changed flares
-  col += (vec3(1.0) + iri*0.5)*glitter(c*vec2(2.5,3.5) + vec2(fi*7.0, T*0.3), uTime*1.4, 0.25)*0.9*(1.0 - shape);
-  float rim = smoothstep(-uRes.y*0.09, -0.3, sd);
-  col += pal(vUv.x*1.3 + uTime*0.08)*rim*(0.55 + uCharge*0.5);         // rainbow glass rim
-  col += smoothstep(0.45, 0.95, c.y)*smoothstep(1.0, 0.5, abs(c.x))*0.18;   // gloss on top
-  col *= 1.0 + uCharge*0.2 + exp(-uPulse*5.0)*0.25;
-  gl_FragColor = vec4(clamp(col,0.0,1.0)*inside, inside);
+  float a = max(aN, aO);
+  vec3 wood = aN >= aO ? sn.rgb : so.rgb;
+  wood += vec3(0.9,0.6,1.0)*sheen*0.3;                                 // a glimmer of magic runs along the wood
+  col = mix(col, wood, a);
+  float eO = smoothstep(0.09,0.0,abs(dn-to))*sin(3.14159*outV)*max(so.a, go*0.5);
+  float eN = smoothstep(0.09,0.0,abs(dn-ti))*sin(3.14159*inV)*max(sn.a, gn*0.5);
+  col += vec3(1.0,0.55,0.15)*eO*1.9 + vec3(0.72,1.0,0.45)*eN*1.4;      // embers burning away / sprouts growing in
+  col += magic*(1.0-prog)*(1.0-prog)*0.45*glow;
+  col *= 1.0 + uCharge*0.15 + exp(-uPulse*5.0)*0.25;
+  gl_FragColor = vec4(clamp(col,0.0,1.0), 1.0);
 }`;
 
-// digits 0-9 side by side (80x96 slots): R = sharp, G = soft glow
-function digitAtlas() {
-  const SW = 80, SH = 96, w = SW * 10;
-  const mk = () => { const c = document.createElement("canvas"); c.width = w; c.height = SH; return c; };
-  const paint = (c, blur) => {
-    const g = c.getContext("2d");
-    if (blur) g.filter = "blur(5px)";
-    g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle";
-    g.font = '400 78px Bungee, "Arial Black", Arial, sans-serif';
-    for (let i = 0; i < 10; i++) g.fillText(String(i), i * SW + SW / 2, SH / 2 + 4);
-  };
-  const sharp = mk(), soft = mk(); paint(sharp, false); paint(soft, true);
-  const a = sharp.getContext("2d").getImageData(0, 0, w, SH).data, b = soft.getContext("2d").getImageData(0, 0, w, SH).data;
-  const out = new Uint8Array(w * SH * 4);
-  for (let i = 0; i < a.length; i += 4) { out[i] = a[i + 3]; out[i + 1] = b[i + 3]; out[i + 3] = 255; }
-  return { w, h: SH, data: out };
+// digits 0-9 drawn as twigs. Top half of the atlas = colour (alpha = shape), bottom half = glow in R.
+function stickAtlas() {
+  const SW = 80, SH = 120, W2 = SW * 10;
+  const SEG = { a: [[18, 14], [62, 14]], b: [[62, 14], [62, 60]], c: [[62, 60], [62, 106]], d: [[18, 106], [62, 106]],
+    e: [[18, 60], [18, 106]], f: [[18, 14], [18, 60]], g: [[18, 60], [62, 60]] };
+  const DIG = ["abcdef", "bc", "abged", "abgcd", "fgbc", "afgcd", "afgedc", "abc", "abcdefg", "abcdfg"];
+  let seed = 7; const rand = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  const twigs = DIG.map((d, i) => [...d].map((k) => {
+    const [[x0, y0], [x1, y1]] = SEG[k];
+    const L = Math.hypot(x1 - x0, y1 - y0), ux = (x1 - x0) / L, uy = (y1 - y0) / L, nx = -uy, ny = ux, ox = i * SW, over = 5;
+    const p0 = [ox + x0 - ux * over + nx * (rand() * 3 - 1.5), y0 - uy * over + ny * (rand() * 3 - 1.5)];
+    const p1 = [ox + x1 + ux * over + nx * (rand() * 3 - 1.5), y1 + uy * over + ny * (rand() * 3 - 1.5)];
+    const bend = (rand() * 2 - 1) * 3.5;
+    const mid = [(p0[0] + p1[0]) / 2 + nx * bend, (p0[1] + p1[1]) / 2 + ny * bend];
+    const sprout = rand() < 0.3 ? { t: 0.3 + rand() * 0.4, side: rand() < 0.5 ? -1 : 1, len: 9 + rand() * 5, leaf: rand() < 0.65 } : null;
+    return { p0, p1, mid, ux, uy, sprout, knot: rand() < 0.5 ? 0.25 + rand() * 0.5 : -1, w: 10 + rand() * 2, grain: [0, 1, 2, 3].map(() => 0.12 + rand() * 0.76) };
+  }));
+  const at = (s, t) => { const u = 1 - t; return [u * u * s.p0[0] + 2 * u * t * s.mid[0] + t * t * s.p1[0], u * u * s.p0[1] + 2 * u * t * s.mid[1] + t * t * s.p1[1]]; };
+  const stroke = (g, s, w, color) => { g.strokeStyle = color; g.lineWidth = w; g.beginPath(); g.moveTo(...s.p0); g.quadraticCurveTo(...s.mid, ...s.p1); g.stroke(); };
+  const sproutEnd = (s) => { const b = at(s, s.sprout.t), ang = Math.atan2(s.uy, s.ux) + s.sprout.side * 0.75; return [b, [b[0] + Math.cos(ang) * s.sprout.len, b[1] + Math.sin(ang) * s.sprout.len], ang]; };
+  const mk = () => { const c = document.createElement("canvas"); c.width = W2; c.height = SH; const g = c.getContext("2d"); g.lineCap = "round"; g.lineJoin = "round"; return g; };
+  const g = mk();
+  for (const digit of twigs) for (const s of digit) {
+    stroke(g, s, s.w + 2.5, "#241205");                                // dark bark outline
+    stroke(g, s, s.w - 1, "#7a4b24");                                  // bark
+    g.save(); g.translate(-1.2, -1.4); stroke(g, s, 2.4, "#c99456"); g.restore();   // lit edge
+    g.strokeStyle = "rgba(38,18,5,.75)"; g.lineWidth = 1.2;           // bark grain
+    for (const t of s.grain) { const p = at(s, t); g.beginPath(); g.moveTo(p[0] - s.ux * 3.2, p[1] - s.uy * 3.2); g.lineTo(p[0] + s.ux * 3.2, p[1] + s.uy * 3.2); g.stroke(); }
+    if (s.knot > 0) { const p = at(s, s.knot); g.fillStyle = "#3a1e0a"; g.beginPath(); g.ellipse(p[0], p[1], 2.4, 1.7, Math.atan2(s.uy, s.ux), 0, Math.PI * 2); g.fill(); }
+    if (s.sprout) {
+      const [b, e, ang] = sproutEnd(s);
+      g.strokeStyle = "#241205"; g.lineWidth = 4; g.beginPath(); g.moveTo(...b); g.lineTo(...e); g.stroke();
+      g.strokeStyle = "#8a5a2c"; g.lineWidth = 2.2; g.beginPath(); g.moveTo(...b); g.lineTo(...e); g.stroke();
+      if (s.sprout.leaf) {
+        g.save(); g.translate(...e); g.rotate(ang);
+        const lg = g.createLinearGradient(0, -3, 0, 3); lg.addColorStop(0, "#9be36e"); lg.addColorStop(1, "#3c8a2c");
+        g.fillStyle = lg; g.beginPath(); g.ellipse(4.5, 0, 5, 2.6, 0, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = "rgba(30,70,20,.8)"; g.lineWidth = 0.7; g.beginPath(); g.moveTo(0, 0); g.lineTo(9, 0); g.stroke();
+        g.restore();
+      }
+    }
+  }
+  for (const digit of twigs) for (const s of digit) for (const p of [s.p0, s.p1]) {   // cut log ends on top
+    g.fillStyle = "#d9a86a"; g.strokeStyle = "#5e3518"; g.lineWidth = 1.1;
+    g.beginPath(); g.arc(p[0], p[1], s.w * 0.4, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.strokeStyle = "rgba(110,60,25,.6)"; g.lineWidth = 0.7; g.beginPath(); g.arc(p[0], p[1], s.w * 0.2, 0, Math.PI * 2); g.stroke();
+  }
+  const gg = mk();
+  gg.filter = "blur(7px)"; gg.strokeStyle = "#fff";
+  for (const digit of twigs) for (const s of digit) {
+    stroke(gg, s, s.w + 8, "#fff");
+    if (s.sprout) { const [b, e] = sproutEnd(s); gg.lineWidth = 6; gg.beginPath(); gg.moveTo(...b); gg.lineTo(...e); gg.stroke(); }
+  }
+  const a = g.getImageData(0, 0, W2, SH).data, b = gg.getImageData(0, 0, W2, SH).data;
+  const out = new Uint8Array(W2 * SH * 2 * 4);
+  out.set(a, 0);
+  for (let i = 0; i < b.length; i += 4) { const j = a.length + i; out[j] = b[i + 3]; out[j + 3] = 255; }
+  return { w: W2, h: SH * 2, data: out };
 }
 
 // one full-screen triangle + one texture; returns a draw(floats, arrays) function or null
@@ -280,7 +314,7 @@ function glQuad(cv, frag, tex, floats, arrays = []) {
   };
 }
 const orbGL = (cv) => glQuad(cv, ORB_FRAG, likeTexture(), ["uTime", "uFlow", "uCharge", "uPulse", "uHover", "uHeart", "uLike"]);
-const counterGL = (cv) => glQuad(cv, MC_FRAG, digitAtlas(), ["uTime", "uFlow", "uCharge", "uPulse"], ["uCur", "uPrev", "uProg"]);
+const counterGL = (cv) => glQuad(cv, MC_FRAG, stickAtlas(), ["uTime", "uFlow", "uCharge", "uPulse"], ["uCur", "uPrev", "uProg"]);
 
 export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   const root = document.getElementById("pep");
@@ -315,7 +349,7 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   let drawOrb = orbGL(orbCv);
   if (!drawOrb) orbEl.classList.add("nogl"); // plain CSS ball if WebGL isn't available
   orbCv.addEventListener("webglcontextlost", (e) => { e.preventDefault(); drawOrb = null; orbEl.classList.add("nogl"); });
-  // the magic counter (waits for the Bungee font so the digits come out right; plain cells until then)
+  // the magic counter (plain cells until the twig digits are ready)
   const MC_W = 120, MC_H = 30;
   mcCv.width = Math.round(MC_W * dpr); mcCv.height = Math.round(MC_H * dpr);
   const dig = { uCur: new Float32Array(6), uPrev: new Float32Array(6), uProg: new Float32Array(6).fill(1) };

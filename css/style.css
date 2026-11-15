@@ -323,8 +323,8 @@ textarea{resize:vertical;min-height:44px}
 @keyframes firefly{0%{opacity:0;transform:translate(0,0)}20%{opacity:1}50%{transform:translate(9px,-10px)}70%{opacity:.8}100%{opacity:0;transform:translate(-6px,-20px)}}
 /* plain digits until the shader is ready (or without WebGL), still a little magic */
 .hits .cells{display:flex;gap:2px}
-.hits .cells b{display:block;width:18px;height:30px;border-radius:5px;font:400 17px/30px Bungee,Verdana,sans-serif;text-align:center;color:#fff;
-  background:radial-gradient(120% 90% at 50% 20%,#3a1670,#12062a 70%);box-shadow:inset 0 0 0 1px rgba(200,150,255,.45);text-shadow:0 0 6px #d58cff,0 0 2px #fff}
+.hits .cells b{display:block;width:18px;height:30px;font:400 19px/30px "Rock Salt","Gochi Hand",cursive;text-align:center;color:#c99456;
+  text-shadow:0 1px 0 #241205,0 0 6px rgba(200,120,255,.8)}
 /* twinkling stars on the plaque's corners */
 .hits .mc::before,.hits .mc::after{content:"\2726";position:absolute;font-size:11px;line-height:1;color:#fff;text-shadow:0 0 6px #ff8ad8,0 0 12px #b78cff;pointer-events:none;animation:twinkle 2.8s ease-in-out infinite}
 .hits .mc::before{top:-8px;left:-7px}
