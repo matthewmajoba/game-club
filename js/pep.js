@@ -1,35 +1,47 @@
-// Daily saying + the like button you can smash.
+// Daily saying + the crystal ball like button.
 //
-// How smashing works: every hit adds 1 "heat". While you keep hitting, heat only bleeds
-// off slowly (1 per second); stop for half a second and it drains fast. So normal
-// clicking never hurts the button, but a real smashing spree does:
-//   heat 20 / 30 / 40 -> it cracks, more each time (cracks fade if you calm down)
-//   heat 50           -> it breaks, gets boxed up, stamped DAMAGED, shipped off and replaced
-// In practice: ~22 nonstop hits to crack it, ~55-75 nonstop hits to break it (fewer if fast).
+// The ball: a tiny WebGL shader draws swirling iridescent fog, glitter riding the swirl,
+// energy filaments, glass shine, and two "visions" that take turns: a heart and LIKE 👍.
+// Visions dissolve into the fog (it eats them from the edges, which glow as they go) and
+// form back out of it while the fog parts around them.
 //
-// Likes: one shared pool per day. Only signed-in members add to it. Hits are batched and sent
+// Tapping charges the ball with magic: it brightens and swirls faster, filaments flare,
+// strands of energy spiral outward, orbit rings of light appear if you keep going, and a
+// spark flies to the counter for every like. Charge fades gently when you stop.
+//
+// Likes: one shared pool per day. Only signed-in members add to it. Taps are batched and sent
 // every ~half second (the server takes at most 40 per call and 5000 per member per day).
 // Finished days are saved as Love Notes (see archive_love_notes in the database).
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
 
 const TZ = "America/Los_Angeles";
-const CRACK_AT = [20, 30, 40], BREAK_AT = 50;
-const SLOW_DECAY = 1, FAST_DECAY = 10, IDLE_MS = 450;
 const TAU = Math.PI * 2;
-// geometry, must match .smash-stage / .sb-wrap / .orb / .smash-fx / .crate in the CSS:
-// stage 170x140, crystal ball 86px centred at (85,67), canvas 400x400 centred on the ball
-const W = 400, CX = 200, CY = 200, RX = 43, RY = 43, GROUND = 273, BTN_FLOOR = 273, BOX_TOP = 173;
-const PW = 86, PH = 86; // ball size = crack svg viewBox
+// geometry, must match .smash-stage / .sb-wrap / .smash-fx in the CSS:
+// stage 110x104, ball 86px centred at (55,52), effect canvases 400x400 centred on the ball
+const W = 400, CX = 200, CY = 200, RB = 43, BALL = 86;
+const SWIRL = -1; // energy spins the same way as the fog
 
-// ---------- the crystal ball (a tiny WebGL shader) ----------
-// Swirling iridescent fog (domain-warped noise in a vortex), glitter that rides the swirl,
-// a glowing heart, glass absorption + rainbow rim, a caustic under-glow, and shine.
-// uFlow is accumulated swirl (speeds up with hover and heat), uPulse = seconds since a hit.
+const rnd = (a, b) => a + Math.random() * (b - a);
+const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+const vib = (p) => { try { if (navigator.userActivation?.hasBeenActive !== false) navigator.vibrate?.(p); } catch { /* no haptics */ } };
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+export function todayStr() {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" })
+    .formatToParts(new Date()).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
+const dayNum = (d) => { const [y, m, dd] = d.split("-").map(Number); return Math.round(Date.UTC(y, m - 1, dd) / 864e5); };
+
+// ---------- the crystal ball shader ----------
+// uFlow: accumulated swirl. uCharge: 0..1 magic from tapping. uPulse: seconds since the last tap.
+// uHeart / uLike: how much of each vision is showing (0..1). uTex: LIKE 👍 (R sharp, G glow, B detail).
 const ORB_VERT = "attribute vec2 p;varying vec2 vUv;void main(){vUv=p*0.5+0.5;gl_Position=vec4(p,0.0,1.0);}";
 const ORB_FRAG = `precision highp float;
 varying vec2 vUv;
 uniform vec2 uRes;
-uniform float uTime, uFlow, uHeat, uPulse, uDead, uHover;
+uniform float uTime, uFlow, uCharge, uPulse, uHover, uHeart, uLike;
+uniform sampler2D uTex;
 float h31(vec3 p){ p = fract(p*0.3183099 + 0.1); p *= 17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
 float h21(vec2 p){ p = fract(p*vec2(123.34,456.21)); p += dot(p, p+45.32); return fract(p.x*p.y); }
 float vnoise(vec3 x){
@@ -38,6 +50,7 @@ float vnoise(vec3 x){
              mix(mix(h31(i+vec3(0,0,1)),h31(i+vec3(1,0,1)),f.x), mix(h31(i+vec3(0,1,1)),h31(i+vec3(1,1,1)),f.x), f.y), f.z);
 }
 float fbm(vec3 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a*vnoise(p); p = p*2.02 + vec3(1.7,9.2,3.1); a *= 0.5; } return s; }
+float fbm3(vec3 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 3; i++) { s += a*vnoise(p); p = p*2.03 + vec3(4.1,2.7,8.3); a *= 0.5; } return s/0.875; }
 float dot2(vec2 v){ return dot(v,v); }
 float sdHeart(vec2 p){ p.x = abs(p.x); if (p.y+p.x > 1.0) return sqrt(dot2(p-vec2(0.25,0.75))) - 0.35355;
   return sqrt(min(dot2(p-vec2(0.0,1.0)), dot2(p-0.5*max(p.x+p.y,0.0)))) * sign(p.x-p.y); }
@@ -61,43 +74,99 @@ void main(){
   float z = sqrt(max(0.0, 1.0 - r*r));
   vec3 n = vec3(uv, z);
   float T = uFlow;
-  vec2 p = uv*(0.72 + 0.28*z);                                   // glass lens
-  p += (uv/(r+0.001)) * sin(r*16.0 - uPulse*20.0) * exp(-uPulse*4.0) * 0.07 * (1.0-r);  // hit ripple
-  float ang = T*0.8 + (1.0-r)*(2.4 + uHeat*3.0);                 // vortex: the middle spins faster
+  float kick = exp(-uPulse*5.0);                                   // fresh-tap flash
+  vec2 p = uv*(0.72 + 0.28*z);                                      // glass lens
+  p += (uv/(r+0.001)) * sin(r*16.0 - uPulse*18.0) * exp(-uPulse*3.5) * 0.06 * (1.0-r);  // tap ripple
+  float ang = T*0.8 + (1.0-r)*(2.4 + uCharge*2.5);                  // vortex: the middle spins faster
   float c = cos(ang), s = sin(ang);
   vec2 q = mat2(c,-s,s,c)*p;
   vec3 P = vec3(q*1.7, T*0.3);
   vec2 w = vec2(fbm(P), fbm(P + vec3(5.2,1.3,2.8)));
   float d = fbm(P + vec3(w*1.9, T*0.15));
-  float fog = smoothstep(0.22, 0.72, d);
+
+  // visions sit inside the fog and drift with it
+  vec2 sp = p + (w - 0.5)*0.05;
+  float bob = 0.03*sin(uTime*1.4);
+  vec2 hp = vec2(sp.x, sp.y + bob)*1.75 + vec2(0.0,0.55);
+  float hd = sdHeart(hp);
+  float heartShape = smoothstep(0.04,-0.04,hd), heartGlow = exp(-max(hd,0.0)*6.0);
+  vec4 tx = texture2D(uTex, vec2(sp.x, sp.y + bob)*0.5 + 0.5);
+  float likeShape = tx.r, likeGlow = tx.g, likeDetail = tx.b;
+  // dissolve: a slow noise that rides the fog decides which bits are eaten first
+  float dn = fbm3(vec3(sp*3.0 + w*0.9, uTime*0.18 + 11.0));
+  float hv = mix(-0.05, 1.05, uHeart), lv = mix(-0.05, 1.05, uLike);
+  float hRev = 1.0 - smoothstep(hv - 0.07, hv + 0.07, dn);
+  float lRev = 1.0 - smoothstep(lv - 0.07, lv + 0.07, dn);
+  float hEdge = smoothstep(0.09, 0.0, abs(dn - hv)) * sin(3.14159*uHeart);
+  float lEdge = smoothstep(0.09, 0.0, abs(dn - lv)) * sin(3.14159*uLike);
+  float part = max(heartGlow*hRev, likeGlow*lRev);                 // the fog parts around a vision
+
+  float fog = smoothstep(0.22, 0.72, d) * (1.0 - 0.6*part);
   vec3 iri = pal(d*1.6 + w.x*0.9 + r*0.4 + T*0.05);
   vec3 deep = mix(vec3(0.10,0.03,0.24), vec3(0.03,0.08,0.26), uv.y*0.5+0.5);
   vec3 col = mix(deep, iri*1.1, 0.18 + fog*0.8);
-  col += vec3(1.0,0.95,1.0)*pow(fog,2.5)*0.35;                  // milky wisps
-  col += vec3(0.9,0.6,1.0)*exp(-r*r*4.0)*0.22;                  // inner glow
-  vec2 hp = vec2(uv.x, uv.y + 0.035*sin(uTime*1.6))*1.75 + vec2(0.0,0.55);
-  float hd = sdHeart(hp);
-  vec3 heart = vec3(1.0,0.25,0.65)*(0.9 + 0.25*sin(uTime*3.0));
-  col = mix(col, heart, smoothstep(0.04,-0.04,hd)*(0.72 - fog*0.3));
-  col += vec3(1.0,0.3,0.7)*exp(-max(hd,0.0)*6.0)*0.45;
-  float sp = glitter(q*6.0 + vec2(0.0, T*0.4), uTime*1.3, 0.5) + glitter(q*11.0 - vec2(T*0.3, 0.0), uTime*1.7, 0.35)*0.8;
-  col += (vec3(1.0) + iri*0.6) * sp * (0.7 + 0.6*fog) * 1.8;    // sparkly liquid
-  col = mix(col, col*vec3(1.5,0.85,0.45) + vec3(0.3,0.1,0.0)*fog, uHeat*0.7);  // boiling hot
-  col *= 0.7 + 0.4*z;                                           // thicker glass at the edge
-  col += pal(r*1.2 + uv.y*0.4 + uTime*0.03 + 0.5) * pow(1.0-z, 2.2) * 0.85;  // rainbow rim
-  col += vec3(1.0,0.75,0.95) * smoothstep(0.45,0.0,length((uv - vec2(0.0,-0.62))*vec2(1.0,1.8))) * 0.35;  // caustic
+  col += vec3(1.0,0.95,1.0)*pow(fog,2.5)*0.35;                      // milky wisps
+  col += vec3(0.9,0.6,1.0)*exp(-r*r*4.0)*(0.2 + uCharge*0.35);      // inner glow
+  float rf = 1.0 - abs(2.0*fbm3(vec3(q*2.4 + w*1.3, T*0.45 + 3.0)) - 1.0);
+  col += pal(d*2.0 + uTime*0.1 + 0.3) * pow(rf, 9.0) * (0.22 + uCharge*1.0 + kick*0.5);  // energy filaments
+
+  float wisp = smoothstep(0.6, 0.95, d)*0.35;                       // dense wisps drift in front
+  vec3 heartCol = vec3(1.0,0.28,0.66)*(0.95 + 0.2*sin(uTime*3.0));
+  col *= 1.0 - 0.25*heartGlow*hRev*(1.0 - heartShape);              // a little shadow so it reads
+  col = mix(col, heartCol, heartShape*hRev*(0.8 - wisp));
+  col += heartCol*heartGlow*hRev*0.42;
+  col *= 1.0 - 0.55*clamp(likeGlow*1.7, 0.0, 1.0)*lRev*(1.0 - likeShape);   // dark backdrop behind the word
+  vec3 likeCol = mix(vec3(1.0,0.97,1.0), iri, 0.15) * mix(0.72, 1.12, likeDetail);
+  col = mix(col, likeCol, likeShape*lRev*(0.98 - wisp));
+  col += mix(vec3(0.95,0.45,1.0), iri, 0.3)*likeGlow*lRev*0.55;
+  vec3 ember = pal(dn*3.0 + uTime*0.2);                             // the glowing edge as it's eaten / born
+  col += ember*(hEdge*max(heartShape, heartGlow*0.5) + lEdge*max(likeShape, likeGlow*0.5))*1.5;
+
+  float spk = glitter(q*6.0 + vec2(0.0, T*0.4), uTime*1.3, 0.45 + uCharge*0.3) + glitter(q*11.0 - vec2(T*0.3, 0.0), uTime*1.7, 0.3 + uCharge*0.3)*0.8;
+  col += (vec3(1.0) + iri*0.6)*spk*(0.7 + 0.6*fog)*(1.7 + uCharge*1.0);   // sparkly liquid
+
+  col *= 1.0 + uCharge*0.22 + kick*0.3 + uHover*0.08;               // lights up with magic
+  col += mix(vec3(0.95,0.8,1.0), iri, 0.5)*exp(-r*r*3.5)*(uCharge*0.28 + kick*0.25);
+  col *= 0.7 + 0.4*z;                                               // thicker glass at the edge
+  col += pal(r*1.2 + uv.y*0.4 + uTime*0.03 + 0.5)*pow(1.0-z, 2.2)*(0.85 + uCharge*0.6);  // rainbow rim
+  col += vec3(1.0,0.75,0.95)*smoothstep(0.45,0.0,length((uv - vec2(0.0,-0.62))*vec2(1.0,1.8)))*0.35;  // caustic
   vec3 H = normalize(normalize(vec3(-0.55,0.65,0.55)) + vec3(0.0,0.0,1.0));
   float spec = pow(max(dot(n,H),0.0), 90.0)*0.6;
-  float a2 = atan(uv.y, uv.x);                                    // curved window reflection, top-left
+  float a2 = atan(uv.y, uv.x);                                      // curved window reflection, top-left
   float arc = smoothstep(0.64,0.72,r)*smoothstep(0.92,0.84,r)*smoothstep(0.75,0.15,abs(a2 - 2.25))*0.6;
   float dot1 = smoothstep(0.10,0.03,length(uv - vec2(-0.34,0.40)))*0.9;
   float tiny = smoothstep(0.06,0.0,length(uv - vec2(0.42,-0.30)))*0.5;
   float rim2 = smoothstep(0.86,0.97,r)*smoothstep(0.2,0.6,-uv.y*0.7 + uv.x*0.3)*0.25;
   col += vec3(1.0)*(spec + arc + dot1 + tiny) + vec3(0.8,0.9,1.0)*rim2;
-  float g = dot(col, vec3(0.3,0.59,0.11));
-  col = mix(col, vec3(g)*0.35, uDead);
   gl_FragColor = vec4(clamp(col,0.0,1.0)*mask, mask);
 }`;
+
+// LIKE 👍 painted once into a texture: R = sharp shape, G = soft glow, B = inner detail
+function likeTexture(size = 256) {
+  const mk = () => { const c = document.createElement("canvas"); c.width = c.height = size; return c; };
+  const paint = (c, blur) => {
+    const g = c.getContext("2d");
+    if (blur) g.filter = `blur(${Math.round(size * 0.035)}px)`;
+    g.textBaseline = "middle"; g.fillStyle = "#fff";
+    const word = `900 ${Math.round(size * 0.15)}px "Arial Black", Arial, sans-serif`;
+    const emo = `${Math.round(size * 0.16)}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+    g.font = word; const ww = g.measureText("LIKE").width;
+    g.font = emo; const ew = g.measureText("👍").width;
+    const gap = size * 0.03, x0 = (size - ww - gap - ew) / 2, y = size / 2;
+    g.font = word; g.fillText("LIKE", x0, y + size * 0.005);
+    g.font = emo; g.fillText("👍", x0 + ww + gap, y);
+  };
+  const sharp = mk(), soft = mk(); paint(sharp, false); paint(soft, true);
+  const a = sharp.getContext("2d").getImageData(0, 0, size, size).data;
+  const b = soft.getContext("2d").getImageData(0, 0, size, size).data;
+  const out = new Uint8Array(size * size * 4);
+  for (let i = 0; i < a.length; i += 4) {
+    const lum = (a[i] * 0.3 + a[i + 1] * 0.59 + a[i + 2] * 0.11) / 255;
+    out[i] = a[i + 3]; out[i + 1] = b[i + 3]; out[i + 2] = Math.round(Math.min(1, lum * 1.15) * 255); out[i + 3] = 255;
+  }
+  return { size, data: out };
+}
+
 function orbGL(cv) {
   let gl = null;
   try { gl = cv.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false }); } catch { /* no webgl */ }
@@ -115,48 +184,21 @@ function orbGL(cv) {
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
   const loc = gl.getAttribLocation(pr, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-  const U = {}; for (const k of ["uRes", "uTime", "uFlow", "uHeat", "uPulse", "uDead", "uHover"]) U[k] = gl.getUniformLocation(pr, k);
+  const t = likeTexture();
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, t.size, t.size, 0, gl.RGBA, gl.UNSIGNED_BYTE, t.data);
+  for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+  const names = ["uTime", "uFlow", "uCharge", "uPulse", "uHover", "uHeart", "uLike"];
+  const U = {}; for (const k of ["uRes", "uTex", ...names]) U[k] = gl.getUniformLocation(pr, k);
+  gl.uniform1i(U.uTex, 0);
   return (o) => {
     gl.viewport(0, 0, cv.width, cv.height);
     gl.uniform2f(U.uRes, cv.width, cv.height);
-    for (const k of ["uTime", "uFlow", "uHeat", "uPulse", "uDead", "uHover"]) gl.uniform1f(U[k], o[k]);
+    for (const k of names) gl.uniform1f(U[k], o[k]);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };
 }
-
-// the gold-and-lacquer stand the ball sits in (drawn in front of the ball's bottom)
-function standSvg() {
-  const s = sv("svg", { class: "stand", viewBox: "0 0 100 50", "aria-hidden": "true" });
-  s.innerHTML = `<defs>
-    <linearGradient id="gcGoldV" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3b8"/><stop offset=".45" stop-color="#e6ad33"/><stop offset=".56" stop-color="#b8771a"/><stop offset="1" stop-color="#f5d070"/></linearGradient>
-    <linearGradient id="gcGoldH" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8a5610"/><stop offset=".3" stop-color="#ffe9a0"/><stop offset=".55" stop-color="#d79a2a"/><stop offset="1" stop-color="#6e420a"/></linearGradient>
-    <linearGradient id="gcLac" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6a2e8c"/><stop offset=".5" stop-color="#2c0d40"/><stop offset="1" stop-color="#12041c"/></linearGradient>
-  </defs>
-  <path d="M22 6 A28 10 0 0 0 78 6 C78 17 66 24 50 24 C34 24 22 17 22 6 Z" fill="url(#gcGoldH)" stroke="#5a3200" stroke-width=".8"/>
-  <path d="M22 6 A28 10 0 0 0 78 6" fill="none" stroke="#fff6c8" stroke-width="1.2" opacity=".85"/>
-  <rect x="44" y="22" width="12" height="8" fill="url(#gcGoldH)" stroke="#5a3200" stroke-width=".6"/>
-  <path d="M8 46 L14 32 Q15 30 18 30 H82 Q85 30 86 32 L92 46 Q93 49 89 49 H11 Q7 49 8 46 Z" fill="url(#gcLac)" stroke="#e6ad33" stroke-width="1.2"/>
-  <path d="M16 32.5 H84" stroke="#fff3b8" stroke-width=".7" opacity=".6"/>
-  <rect x="27" y="34" width="46" height="12" rx="2" fill="url(#gcGoldV)" stroke="#5a3200" stroke-width=".7"/>
-  <text x="50" y="43.2" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="8.6" fill="#5a2d00" letter-spacing=".4">♥ LIKE</text>`;
-  return s;
-}
-
-const rnd = (a, b) => a + Math.random() * (b - a);
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-const vib = (p) => { try { if (navigator.userActivation?.hasBeenActive !== false) navigator.vibrate?.(p); } catch { /* no haptics */ } };
-const play = (el, kf, o) => el.animate(kf, { fill: "forwards", ...o });
-
-export function todayStr() {
-  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" })
-    .formatToParts(new Date()).map((x) => [x.type, x.value]));
-  return `${p.year}-${p.month}-${p.day}`;
-}
-const dayNum = (d) => { const [y, m, dd] = d.split("-").map(Number); return Math.round(Date.UTC(y, m - 1, dd) / 864e5); };
-
-const NS = "http://www.w3.org/2000/svg";
-const sv = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
 
 export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   const root = document.getElementById("pep");
@@ -164,230 +206,194 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
 
   // ---------- DOM ----------
   const quote = h("p", { class: "pep-quote" }, "...");
-  const crackSvg = sv("svg", { viewBox: `0 0 ${PW} ${PH}`, "aria-hidden": "true" });
-  const flash = h("span", { class: "flash" });
   const orbCv = h("canvas", { class: "orb-gl", "aria-hidden": "true" });
-  const orbEl = h("span", { class: "orb" }, orbCv, h("span", { class: "hot" }), crackSvg, flash);
-  const btn = h("button", { type: "button", class: "sb", "aria-label": "Like today's saying" }, orbEl, standSvg());
+  const orbEl = h("span", { class: "orb" }, orbCv, h("span", { class: "orb-lbl", "aria-hidden": "true" }, "👍 LIKE"));
+  const btn = h("button", { type: "button", class: "sb", "aria-label": "Like today's saying" }, orbEl);
   const wrap = h("div", { class: "sb-wrap" }, btn);
-  const canvas = h("canvas", { class: "smash-fx", "aria-hidden": "true" });
-  const comboN = h("b"), comboMsg = h("span");
-  const combo = h("div", { class: "combo", "aria-hidden": "true" }, comboN, comboMsg);
-  const stageEl = h("div", { class: "smash-stage" }, combo, wrap, canvas);
+  const fxBack = h("canvas", { class: "smash-fx back", "aria-hidden": "true" });
+  const fxFront = h("canvas", { class: "smash-fx front", "aria-hidden": "true" });
+  const stageEl = h("div", { class: "smash-stage" }, h("span", { class: "pool", "aria-hidden": "true" }), fxBack, wrap, fxFront);
   const cells = h("span", { class: "cells" });
   const counter = h("div", { class: "hits", role: "status", "aria-label": "Likes today" }, cells, h("small", null, "likes"));
   const smash = h("div", { class: "smash" }, stageEl, counter);
   root.replaceChildren(quote, smash);
 
-  const ctx = canvas.getContext("2d");
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  canvas.width = W * dpr; canvas.height = W * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-  // ---------- the ball's swirling insides ----------
-  orbCv.width = orbCv.height = Math.round(PW * dpr);
+  const ctxs = [fxBack, fxFront].map((c) => { c.width = c.height = W * dpr; const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); return g; });
+  orbCv.width = orbCv.height = Math.round(BALL * dpr);
   let drawOrb = orbGL(orbCv);
   if (!drawOrb) orbEl.classList.add("nogl"); // plain CSS ball if WebGL isn't available
   orbCv.addEventListener("webglcontextlost", (e) => { e.preventDefault(); drawOrb = null; orbEl.classList.add("nogl"); });
-  let orbVis = true, orbRaf = 0, orbLast = 0, flow = 0, hover = 0, hoverT = 0, lastHitT = -1e9, dead = false, deadV = 0;
-  function orbFrame(now) {
-    orbRaf = 0;
-    if (!drawOrb || !orbVis || document.hidden) return;
-    const dt = Math.min(0.05, Math.max(0, (now - orbLast) / 1000)); orbLast = now;
-    const calm = reduced() ? 0.15 : 1, k = Math.min(1, heat / BREAK_AT);
-    hover += (hoverT - hover) * Math.min(1, dt * 5);
-    deadV += ((dead ? 1 : 0) - deadV) * Math.min(1, dt * 4);
-    flow += dt * (0.22 + hover * 0.35 + k * 1.6) * calm * (1 - deadV * 0.9);
-    drawOrb({ uTime: (now / 1000) * calm, uFlow: flow, uHeat: k, uPulse: (now - lastHitT) / 1000, uDead: deadV, uHover: hover });
-    orbRaf = requestAnimationFrame(orbFrame);
-  }
-  function startOrb() { if (!orbRaf && drawOrb) { orbLast = performance.now(); orbRaf = requestAnimationFrame(orbFrame); } }
-  new IntersectionObserver(([e]) => { orbVis = e.isIntersecting; if (orbVis) startOrb(); }).observe(orbEl);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) startOrb(); });
-  btn.addEventListener("pointerenter", () => { hoverT = 1; });
-  btn.addEventListener("pointerleave", () => { hoverT = 0; });
-  btn.addEventListener("focus", () => { hoverT = 1; });
-  btn.addEventListener("blur", () => { hoverT = 0; });
-  startOrb();
 
-  // ---------- sounds (synthesized) ----------
+  // ---------- sounds: a crystal chime that climbs a scale as the magic builds ----------
   let master = null, nbuf = null;
   function A() {
     const a = audio(); if (!a || a.state !== "running") return null;
-    if (!master || master.context !== a) { master = a.createGain(); master.gain.value = 0.5; master.connect(a.destination); }
+    if (!master || master.context !== a) { master = a.createGain(); master.gain.value = 0.45; master.connect(a.destination); }
     if (!nbuf || nbuf.sampleRate !== a.sampleRate) {
       nbuf = a.createBuffer(1, a.sampleRate * 2, a.sampleRate);
       const d = nbuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     }
     return a;
   }
-  function nz(a, t, dur, { type = "lowpass", f = 1000, f2 = 0, q = 0.7, g = 0.3, atk = 0.003 } = {}) {
-    const s = a.createBufferSource(); s.buffer = nbuf;
-    const fl = a.createBiquadFilter(); fl.type = type; fl.Q.value = q; fl.frequency.setValueAtTime(f, t);
-    if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t + dur);
-    const gn = a.createGain(); gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(g, t + atk); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(fl).connect(gn).connect(master); s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.02);
-  }
-  function tone(a, t, dur, { type = "sine", f = 440, f2 = 0, g = 0.2, atk = 0.003 } = {}) {
+  function tone(a, t, dur, { type = "sine", f = 440, g = 0.2, atk = 0.004 } = {}) {
     const o = a.createOscillator(); o.type = type; o.frequency.setValueAtTime(f, t);
-    if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
     const gn = a.createGain(); gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(g, t + atk); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(gn).connect(master); o.start(t); o.stop(t + dur + 0.02);
   }
+  function shimmer(a, t, dur, g) {
+    const s = a.createBufferSource(); s.buffer = nbuf;
+    const fl = a.createBiquadFilter(); fl.type = "highpass"; fl.frequency.value = 6500;
+    const gn = a.createGain(); gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(g, t + dur * 0.3); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(fl).connect(gn).connect(master); s.start(t, Math.random()); s.stop(t + dur + 0.02);
+  }
+  const SCALE = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
   const sound = (fn) => (...args) => { try { const a = A(); if (a) fn(a, a.currentTime, ...args); } catch { /* audio is a bonus */ } };
-  const snd = {
-    thump: sound((a, t, k = 0) => { // soft knock + a glassy "tink"
-      tone(a, t, 0.1, { f: 200 + k * 120, f2: 70, g: 0.38 }); nz(a, t, 0.02, { type: "highpass", f: 3000, g: 0.1 });
-      const f = 1900 + Math.random() * 500 + k * 400; tone(a, t, 0.22, { f, g: 0.06 }); tone(a, t, 0.16, { f: f * 2.76, g: 0.025 });
-    }),
-    crack: sound((a, t, i = 0) => {
-      nz(a, t, 0.09, { type: "bandpass", f: 2200, q: 1.4, g: 0.6 });
-      for (let j = 0; j < 4 + i * 3; j++) nz(a, t + j * 0.013 + Math.random() * 0.01, 0.02, { type: "highpass", f: 3000 + Math.random() * 3000, g: 0.12 + Math.random() * 0.2 });
-    }),
-    shatter: sound((a, t) => {
-      nz(a, t, 0.8, { f: 8000, f2: 500, g: 0.75, atk: 0.002 }); tone(a, t, 0.4, { f: 130, f2: 38, g: 0.7 });
-      for (let j = 0; j < 12; j++) tone(a, t + 0.12 + Math.random() * 0.75, 0.07, { f: 2400 + Math.random() * 3200, g: 0.04 + Math.random() * 0.05 });
-    }),
-    zap: sound((a, t) => { tone(a, t, 0.07, { type: "square", f: 1600 + Math.random() * 1200, f2: 280, g: 0.06 }); nz(a, t, 0.05, { type: "highpass", f: 4000, g: 0.15 }); }),
-    whoosh: sound((a, t, dur = 0.45, g = 0.35) => {
-      const s = a.createBufferSource(); s.buffer = nbuf;
-      const fl = a.createBiquadFilter(); fl.type = "bandpass"; fl.Q.value = 1.1;
-      fl.frequency.setValueAtTime(300, t); fl.frequency.exponentialRampToValueAtTime(1900, t + dur * 0.6); fl.frequency.exponentialRampToValueAtTime(500, t + dur);
-      const gn = a.createGain(); gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(g, t + dur * 0.6); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      s.connect(fl).connect(gn).connect(master); s.start(t, Math.random()); s.stop(t + dur + 0.02);
-    }),
-    thud: sound((a, t, v = 1) => { tone(a, t, 0.34, { f: 120, f2: 36, g: 0.85 * v }); nz(a, t, 0.22, { f: 600, g: 0.6 * v }); }),
-    slap: sound((a, t) => { nz(a, t, 0.1, { f: 3200, f2: 700, g: 0.85, atk: 0.001 }); tone(a, t, 0.08, { type: "triangle", f: 280, f2: 110, g: 0.3 }); }),
-    skid: sound((a, t, delay = 0) => { nz(a, t + delay, 0.5, { type: "bandpass", f: 1000, f2: 260, q: 2.2, g: 0.3, atk: 0.05 }); }),
-    rattle: sound((a, t) => { for (const d of [0, 0.09, 0.17]) { tone(a, t + d, 0.06, { f: 95, f2: 60, g: 0.35 }); nz(a, t + d, 0.05, { f: 1100, g: 0.25 }); } }),
-    flaps: sound((a, t) => { nz(a, t, 0.07, { f: 1500, g: 0.55 }); nz(a, t + 0.06, 0.07, { f: 1300, g: 0.5 }); nz(a, t, 0.14, { type: "highpass", f: 2500, f2: 6000, g: 0.18 }); }),
-    chime: sound((a, t) => { [784, 988, 1175, 1568].forEach((f, i) => { tone(a, t + i * 0.075, 0.5, { type: "triangle", f, g: 0.13 }); tone(a, t + i * 0.075, 0.3, { f: f * 2, g: 0.04 }); }); }),
-  };
+  const chime = sound((a, t, k) => {
+    const f = 880 * 2 ** (SCALE[Math.min(SCALE.length - 1, Math.floor(k * SCALE.length))] / 12);
+    tone(a, t, 0.7, { f, g: 0.07 }); tone(a, t, 0.35, { type: "triangle", f: f * 2, g: 0.022 }); tone(a, t + 0.03, 0.25, { f: f * 3.01, g: 0.012 });
+    shimmer(a, t, 0.35, 0.025 + k * 0.03);
+  });
+  const swell = sound((a, t) => { for (const f of [220, 330, 440]) tone(a, t, 1.6, { f, g: 0.035, atk: 0.35 }); shimmer(a, t, 1.2, 0.04); });
 
-  // ---------- particles (canvas around the button) ----------
-  const parts = [];
-  const add = (p) => { if (parts.length < 380) { p.max = p.life; parts.push(p); } };
-  const GLASS = ["#ff8ae0", "#8af3ff", "#c4a0ff", "#ffe9a0", "#ffffff", "#ff4fb8"];
-  const edge = (a) => [CX + Math.cos(a) * RX, CY + Math.sin(a) * RY];
-  function sparks(x, y, n, speed = 320) {
-    for (let i = 0; i < n; i++) {
-      const a = rnd(0, TAU), v = rnd(0.35, 1) * speed;
-      add({ t: "spark", x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - speed * 0.3, life: rnd(0.2, 0.55), w: rnd(1, 2.2) });
-    }
+  // ---------- energy (2D canvases behind and in front of the ball) ----------
+  const strands = [], motes = [], rings = [], darts = [];
+  let hueBase = rnd(0, 360);
+  const HUES = [190, 268, 292, 318, 338]; // cyan, violet, purple, magenta, pink: on-brand magic
+  const pickHue = () => HUES[Math.floor(Math.random() * HUES.length)] + rnd(-10, 10);
+  // strands spiral out in a flattened disc (sq) so they stay close to the panel
+  function spawnStrand(boost = 0) {
+    const a = rnd(0, TAU);
+    strands.push({ a, r: RB * rnd(0.82, 0.98), w: SWIRL * rnd(1.7, 3.1), vr: rnd(40, 70) * (1 + boost * 0.5), t: 0, life: rnd(0.9, 1.5),
+      hue: pickHue(), width: rnd(1.3, 2.5), sq: rnd(0.5, 0.72), layer: Math.random() < 0.3 ? 0 : 1, trail: [] });
   }
-  function edgeSparks(n, speed) {
-    for (let i = 0; i < n; i++) {
-      const a = rnd(0, TAU), v = rnd(0.4, 1) * speed, [x, y] = edge(a);
-      add({ t: "spark", x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - speed * 0.35, life: rnd(0.22, 0.6), w: rnd(1.1, 2.3) });
-    }
+  function spawnMote() {
+    const a = rnd(0, TAU);
+    motes.push({ a, r: RB * rnd(0.9, 1.05), w: SWIRL * rnd(1.2, 2.4), vr: rnd(26, 56), t: 0, life: rnd(0.6, 1.2), s: rnd(2.5, 5), hue: pickHue(), layer: Math.random() < 0.3 ? 0 : 1 });
   }
-  function shards(x, y, n, speed, colors = GLASS, size = 1, spread = 6) {
-    for (let i = 0; i < n; i++) {
-      const a = rnd(0, TAU), v = rnd(0.3, 1) * speed, m = Math.random() < 0.5 ? 3 : 4, pts = [];
-      for (let j = 0; j < m; j++) { const b = (j * TAU) / m + rnd(-0.4, 0.4), r = rnd(1.8, 6) * size; pts.push([Math.cos(b) * r, Math.sin(b) * r]); }
-      add({ t: "shard", x: x + rnd(-spread, spread), y: y + rnd(-spread / 2, spread / 2), vx: Math.cos(a) * v, vy: Math.sin(a) * v - speed * 0.55, rot: rnd(0, TAU), vr: rnd(-14, 14), pts, c: colors[i % colors.length], life: rnd(0.9, 1.5) });
-    }
+  // a spark that flies from the ball to the counter (the digit rolls when it lands)
+  function spawnDart(onLand) {
+    const fr = fxFront.getBoundingClientRect(), cr = cells.getBoundingClientRect(), k = W / (fr.width || W);
+    const tx = (cr.left + cr.width * 0.7 - fr.left) * k, ty = (cr.top + cr.height / 2 - fr.top) * k;
+    const a0 = -0.9 + rnd(-0.3, 0.3);
+    darts.push({ x0: CX + Math.cos(a0) * RB, y0: CY + Math.sin(a0) * RB, cx: (CX + tx) / 2 + rnd(-10, 10), cy: Math.min(CY, ty) - rnd(25, 45), tx, ty, t: 0, life: 0.52, hue: pickHue(), trail: [], onLand });
   }
-  function smoke(x, y, n, { c = "48,46,56", a = 0.38, r = 7, gr = 28, vy = -50, spread = 16 } = {}) {
-    for (let i = 0; i < n; i++) add({ t: "puff", x: x + rnd(-spread, spread), y: y + rnd(-5, 5), vx: rnd(-15, 15), vy: vy * rnd(0.6, 1.2), r: r * rnd(0.7, 1.3), gr: gr * rnd(0.7, 1.3), drag: 0.5, c, a, life: rnd(0.8, 1.3) });
+  function burst(x, y, n, hue) {
+    for (let i = 0; i < n; i++) { const a = rnd(0, TAU), v = rnd(20, 60); motes.push({ fx: x, fy: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: 0, life: rnd(0.3, 0.6), s: rnd(2, 4), hue: hue + rnd(-40, 40), layer: 1 }); }
   }
-  function dust(x, y, n, dir) {
-    for (let i = 0; i < n; i++) add({ t: "puff", x: x + rnd(-6, 6), y: y - rnd(0, 5), vx: dir * rnd(50, 160), vy: -rnd(6, 32), r: rnd(4, 8), gr: rnd(22, 40), drag: 0.05, c: "196,160,112", a: 0.5, life: rnd(0.45, 0.85) });
+  const col = (hue, l, a) => `hsla(${(hue % 360 + 360) % 360},100%,${l}%,${a.toFixed(3)})`;
+  function star(g, x, y, s) {
+    g.beginPath(); g.moveTo(x, y - s);
+    g.quadraticCurveTo(x, y, x + s, y); g.quadraticCurveTo(x, y, x, y + s);
+    g.quadraticCurveTo(x, y, x - s, y); g.quadraticCurveTo(x, y, x, y - s); g.fill();
   }
-  function ring(x, y, r0, r1, a, c, w, life = 0.35, asp = 1) { add({ t: "ring", x, y, r0, r1, a, c, w, asp, life }); }
-  function glints(x, y, n, spread) {
-    for (let i = 0; i < n; i++) add({ t: "glint", x: x + rnd(-spread, spread), y: y + rnd(-spread * 0.6, spread * 0.3), vy: -rnd(10, 45), s: rnd(3.5, 8), c: Math.random() < 0.5 ? "#fff6c8" : "#ffd84a", life: rnd(0.35, 0.8) });
-  }
-  function step(dt) {
-    for (let i = parts.length - 1; i >= 0; i--) {
-      const p = parts[i];
-      p.life -= dt;
-      if (p.life <= 0) { parts.splice(i, 1); continue; }
-      if (p.t === "spark") { p.vy += 900 * dt; p.vx *= 1 - 1.5 * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
-      else if (p.t === "shard") {
-        p.vy += 1300 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
-        if (p.y > GROUND && p.vy > 0) { p.y = GROUND; p.vy *= -0.32; p.vx *= 0.55; p.vr *= 0.5; }
-      } else if (p.t === "puff") { const k = Math.pow(p.drag, dt); p.vx *= k; p.vy *= k; p.x += p.vx * dt; p.y += p.vy * dt; p.r += p.gr * dt; }
-      else if (p.t === "glint") p.y += p.vy * dt;
-    }
-  }
-  function star(x, y, s) {
-    ctx.beginPath(); ctx.moveTo(x, y - s);
-    ctx.quadraticCurveTo(x, y, x + s, y); ctx.quadraticCurveTo(x, y, x, y + s);
-    ctx.quadraticCurveTo(x, y, x - s, y); ctx.quadraticCurveTo(x, y, x, y - s); ctx.fill();
-  }
-  function draw() {
-    ctx.clearRect(0, 0, W, W);
-    for (const p of parts) if (p.t === "puff") {
-      const a = p.a * Math.min(1, (p.life / p.max) * 1.4) * Math.min(1, (p.max - p.life) / 0.08);
-      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
-      g.addColorStop(0, `rgba(${p.c},${a.toFixed(3)})`); g.addColorStop(1, `rgba(${p.c},0)`);
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill();
-    }
-    for (const p of parts) if (p.t === "shard") {
-      ctx.save(); ctx.globalAlpha = Math.min(1, p.life / 0.3); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
-      ctx.fillStyle = p.c; ctx.beginPath(); p.pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = "rgba(255,235,245,.6)"; ctx.lineWidth = 0.8; ctx.stroke(); ctx.restore();
-    }
-    ctx.globalCompositeOperation = "lighter"; ctx.lineCap = "round";
-    for (const p of parts) {
-      const k = p.life / p.max;
-      if (p.t === "spark") {
-        ctx.globalAlpha = Math.min(1, k * 1.6); ctx.strokeStyle = k > 0.6 ? "#fff3c4" : k > 0.3 ? "#ffb432" : "#ff5a14"; ctx.lineWidth = p.w;
-        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 0.026, p.y - p.vy * 0.026); ctx.stroke();
-      } else if (p.t === "ring") {
-        const e = 1 - k, r = p.r0 + (p.r1 - p.r0) * (1 - Math.pow(1 - e, 3));
-        ctx.globalAlpha = p.a * k; ctx.strokeStyle = `rgb(${p.c})`; ctx.lineWidth = Math.max(0.5, p.w * k);
-        ctx.beginPath(); ctx.ellipse(p.x, p.y, r, r * p.asp, 0, 0, TAU); ctx.stroke();
-      } else if (p.t === "glint") { ctx.globalAlpha = 1; ctx.fillStyle = p.c; star(p.x, p.y, p.s * Math.sin(Math.PI * (1 - k))); }
-    }
-    ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
-  }
-
-  // ---------- cracks (random every new button) ----------
-  let groups = [], impact = [PW / 2, PH / 2];
-  function buildCracks() {
-    crackSvg.replaceChildren();
-    const ix = PW / 2 + rnd(-14, 14), iy = PH / 2 + rnd(-14, 14);
-    impact = [ix, iy];
-    groups = [0, 1, 2].map(() => { const g = sv("g", { class: "ck" }); crackSvg.append(g); return g; });
-    const line = (g, pts) => {
-      const d = "M" + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(" L");
-      let len = 1; for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-      for (const cls of ["lt", "dk"]) {
-        const p = sv("path", { d, class: cls });
-        p.style.strokeDasharray = Math.ceil(len); p.style.strokeDashoffset = Math.ceil(len); p.dataset.len = Math.ceil(len);
-        g.append(p);
+  function drawTrail(g, trail, width, hue, alpha) {
+    const n = trail.length; if (n < 2) return;
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 1; i < n; i++) {
+        const u = i / (n - 1);
+        g.lineWidth = Math.max(0.3, width * u * (pass ? 1 : 3.6));
+        g.strokeStyle = col(hue + u * 22, pass ? 82 : 62, alpha * u * (pass ? 1 : 0.2));
+        g.beginPath(); g.moveTo(trail[i - 1][0], trail[i - 1][1]); g.lineTo(trail[i][0], trail[i][1]); g.stroke();
       }
-    };
-    const ray = (x, y, a, len, segs) => {
-      const pts = [[x, y]];
-      for (let i = 0; i < segs; i++) { a += rnd(-0.45, 0.45); const st = (len / segs) * rnd(0.7, 1.3); x += Math.cos(a) * st; y += Math.sin(a) * st; pts.push([x, y]); }
-      return pts;
-    };
-    const base = rnd(0, TAU), main = [];
-    groups[0].append(sv("circle", { cx: ix.toFixed(1), cy: iy.toFixed(1), r: "2.4", class: "dent" }));
-    for (let i = 0; i < 3; i++) { const pts = ray(ix, iy, base + (i * TAU) / 3 + rnd(-0.3, 0.3), rnd(20, 30), 4); main.push(pts); line(groups[0], pts); }
-    for (let i = 0; i < 3; i++) line(groups[1], ray(ix, iy, base + TAU / 6 + (i * TAU) / 3 + rnd(-0.3, 0.3), rnd(28, 40), 5));
-    for (const pts of main) {
-      const [x, y] = pts[2], a = Math.atan2(y - iy, x - ix);
-      line(groups[1], ray(x, y, a + (Math.random() < 0.5 ? -1 : 1) * rnd(0.6, 1.1), rnd(8, 14), 3));
-    }
-    for (let i = 0; i < 6; i++) line(groups[2], ray(ix, iy, rnd(0, TAU), rnd(40, 64), 6));
-    for (const r of [6, 12]) { // spiderweb rings around the impact
-      const pts = [], a0 = rnd(0, TAU);
-      for (let k = 0; k <= 10; k++) { const a = a0 + (k * TAU) / 10; pts.push([ix + Math.cos(a) * r * rnd(0.85, 1.15), iy + Math.sin(a) * r * rnd(0.85, 1.15)]); }
-      for (let k = 0; k < 10; k += 2) if (Math.random() < 0.8) line(groups[2], pts.slice(k, k + 3));
     }
   }
-  function revealCrack(i) {
-    const g = groups[i]; if (!g) return;
-    g.style.transition = "none"; g.style.opacity = "1";
-    for (const p of g.querySelectorAll("path")) {
-      p.getAnimations().forEach((a) => a.cancel());
-      play(p, [{ strokeDashoffset: p.dataset.len }, { strokeDashoffset: 0 }], { duration: 130 + i * 40, easing: "cubic-bezier(.2,.8,.3,1)" });
+  // two tilted rings of light that orbit the ball once the magic is strong
+  const ORBITS = [{ R: 60, sq: 0.28, tilt: 0.38, spd: 1.7, ph: 0 }, { R: 67, sq: 0.2, tilt: -0.55, spd: -1.25, ph: 2 }];
+  function drawOrbits(gs, I, now) {
+    if (I < 0.01) return;
+    for (const o of ORBITS) {
+      const ph = o.ph + (now / 1000) * o.spd, ct = Math.cos(o.tilt), st = Math.sin(o.tilt);
+      let prev = null;
+      for (let i = 0; i <= 64; i++) {
+        const th = (i / 64) * TAU, lx = Math.cos(th) * o.R, ly = Math.sin(th) * o.R * o.sq;
+        const pt = [CX + lx * ct - ly * st, CY + lx * st + ly * ct], front = Math.sin(th) > 0;
+        if (prev) {
+          const g = gs[front ? 1 : 0];
+          const comet = Math.pow(0.5 + 0.5 * Math.cos(th - ph), 8);
+          g.lineWidth = 1.2 + comet * 1.6;
+          g.strokeStyle = col(300 + 42 * Math.sin(th + hueBase * 0.02), 75, I * (0.18 + comet * 0.8));
+          g.beginPath(); g.moveTo(prev[0], prev[1]); g.lineTo(pt[0], pt[1]); g.stroke();
+        }
+        prev = pt;
+      }
     }
   }
-  function hideCrack(i) { const g = groups[i]; if (g) { g.style.transition = ""; g.style.opacity = "0"; } }
+  let fxDirty = false;
+  function stepFx(dt, now, orbitI) {
+    const [gb, gf] = ctxs;
+    const busy = strands.length || motes.length || rings.length || darts.length || orbitI > 0.01;
+    if (!busy) { if (fxDirty) { gb.clearRect(0, 0, W, W); gf.clearRect(0, 0, W, W); fxDirty = false; } return; }
+    fxDirty = true;
+    gb.clearRect(0, 0, W, W); gf.clearRect(0, 0, W, W);
+    for (const g of ctxs) { g.globalCompositeOperation = "lighter"; g.lineCap = "round"; }
+    drawOrbits(ctxs, orbitI, now);
+    for (let i = strands.length - 1; i >= 0; i--) {
+      const s = strands[i]; s.t += dt; const k = s.t / s.life;
+      if (k >= 1) { strands.splice(i, 1); continue; }
+      s.a += s.w * dt * (1 - k * 0.5); s.r += s.vr * dt * (1 - k * 0.45);
+      s.trail.push([CX + Math.cos(s.a) * s.r, CY + Math.sin(s.a) * s.r * s.sq]); if (s.trail.length > 18) s.trail.shift();
+      drawTrail(ctxs[s.layer], s.trail, s.width, s.hue + s.t * 20, Math.min(1, s.t / 0.12) * Math.pow(1 - k, 1.3));
+    }
+    for (let i = motes.length - 1; i >= 0; i--) {
+      const m = motes[i]; m.t += dt; const k = m.t / m.life;
+      if (k >= 1) { motes.splice(i, 1); continue; }
+      let x, y;
+      if (m.fx !== undefined) { m.fx += m.vx * dt; m.fy += m.vy * dt; m.vx *= 0.92; m.vy *= 0.92; x = m.fx; y = m.fy; }
+      else { m.a += m.w * dt; m.r += m.vr * dt; x = CX + Math.cos(m.a) * m.r; y = CY + Math.sin(m.a) * m.r * 0.9; }
+      const g = ctxs[m.layer]; g.fillStyle = col(m.hue, 85, Math.sin(Math.PI * k)); star(g, x, y, m.s * Math.sin(Math.PI * k));
+    }
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const r = rings[i]; r.t += dt; const k = r.t / r.life;
+      if (k >= 1) { rings.splice(i, 1); continue; }
+      const e = 1 - Math.pow(1 - k, 3);
+      gf.lineWidth = 2.2 * (1 - k) + 0.4; gf.strokeStyle = col(r.hue + k * 60, 75, 0.55 * (1 - k));
+      gf.beginPath(); gf.arc(CX, CY, RB + 2 + e * r.grow, 0, TAU); gf.stroke();
+    }
+    for (let i = darts.length - 1; i >= 0; i--) {
+      const d = darts[i]; d.t += dt; const k = Math.min(1, d.t / d.life), e = k * k * (3 - 2 * k), u = 1 - e;
+      const x = u * u * d.x0 + 2 * u * e * d.cx + e * e * d.tx, y = u * u * d.y0 + 2 * u * e * d.cy + e * e * d.ty;
+      d.trail.push([x, y]); if (d.trail.length > 10) d.trail.shift();
+      drawTrail(gf, d.trail, 2.8, d.hue, 0.95);
+      gf.fillStyle = col(d.hue, 92, 1); star(gf, x, y, 5);
+      if (k >= 1) { darts.splice(i, 1); burst(d.tx, d.ty, 6, d.hue); d.onLand?.(); }
+    }
+    for (const g of ctxs) g.globalCompositeOperation = "source-over";
+  }
+
+  // ---------- visions + charge + render loop ----------
+  let vis = true, raf = 0, last = 0, flow = 0, hover = 0, hoverT = 0;
+  let charge = 0, lastTap = -1e9, swelled = false;
+  let heartV = 1, likeV = 0, showing = "heart", nextSwap = performance.now() + 6500;
+  const VIS_SPEED = 0.7; // ~1.4 s to fully dissolve or form
+  function frame(now) {
+    raf = 0;
+    if (!vis || document.hidden) return;
+    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+    const calm = reduced() ? 0.15 : 1;
+    if (now - lastTap > 450) charge = Math.max(0, charge - dt * 0.32);
+    if (charge < 0.3) swelled = false;
+    hover += (hoverT - hover) * Math.min(1, dt * 5);
+    flow += dt * (0.22 + hover * 0.3 + charge * 1.4) * calm;
+    hueBase += dt * (12 + charge * 60);
+    // visions take turns: the shown one is eaten by the fog first, then the other forms
+    if (now > nextSwap && now - lastTap > 5000) { showing = showing === "heart" ? "like" : "heart"; nextSwap = now + 7000; }
+    const sp = dt * VIS_SPEED;
+    if (showing === "like") { heartV = Math.max(0, heartV - sp); if (heartV < 0.3) likeV = Math.min(1, likeV + sp); }
+    else { likeV = Math.max(0, likeV - sp); if (likeV < 0.3) heartV = Math.min(1, heartV + sp); }
+    if (drawOrb) drawOrb({ uTime: (now / 1000) * calm, uFlow: flow, uCharge: charge, uPulse: (now - lastTap) / 1000, uHover: hover, uHeart: heartV, uLike: likeV });
+    wrap.style.setProperty("--charge", charge.toFixed(3));
+    if (!reduced() && charge > 0.45 && Math.random() < dt * (charge - 0.35) * 10) spawnStrand(charge);   // overflowing magic
+    stepFx(dt, now, reduced() ? 0 : smooth(0.35, 0.85, charge));
+    raf = requestAnimationFrame(frame);
+  }
+  function start() { if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); } }
+  new IntersectionObserver(([e]) => { vis = e.isIntersecting; if (vis) start(); }).observe(stageEl);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) start(); });
+  btn.addEventListener("pointerenter", () => { hoverT = 1; });
+  btn.addEventListener("pointerleave", () => { hoverT = 0; });
+  btn.addEventListener("focus", () => { hoverT = 1; });
+  btn.addEventListener("blur", () => { hoverT = 0; });
 
   // ---------- likes (one shared pool per day) ----------
   let day = todayStr(), sayings = [];
@@ -404,7 +410,7 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
       const b = cells.children[i];
       if (b.textContent === ch) return;
       b.textContent = ch;
-      if (roll && prev && !reduced()) b.animate([{ transform: "translateY(-45%)", opacity: 0.2 }, { transform: "none", opacity: 1 }], { duration: 140, easing: "cubic-bezier(.2,.8,.3,1)" });
+      if (roll && prev && !reduced()) b.animate([{ transform: "translateY(-45%)", opacity: 0.2 }, { transform: "none", opacity: 1 }], { duration: 160, easing: "cubic-bezier(.2,.8,.3,1)" });
     });
   }
   async function loadSayings() {
@@ -420,11 +426,10 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   }
   function countLike() {
     if (!getToken()) {
-      if (!nudged) { nudged = true; toast("Sign in so your likes count! (Smashing is free though.)"); }
+      if (!nudged) { nudged = true; toast("Sign in so your likes count!"); }
       return false;
     }
     pending++;
-    setShown(serverTotal + pending + inflight, true);
     if (!flushT) flushT = setTimeout(flush, 450);
     return true;
   }
@@ -444,7 +449,7 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
     setShown(serverTotal + pending);
     if (pending && !flushT) flushT = setTimeout(flush, 300);
   }
-  // don't lose a last burst when someone closes the tab mid-smash
+  // don't lose a last burst when someone closes the tab mid-tapping
   document.addEventListener("visibilitychange", () => {
     const tok = getToken();
     if (document.visibilityState !== "hidden" || !pending || !tok) return;
@@ -456,267 +461,37 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
     }).catch(() => {});
   });
 
-  // ---------- the smash ----------
-  let heat = 0, streak = 0, lastHit = 0, cracked = 0, busy = false, raf = 0, lastT = 0, smokeT = 0, jolt = 0, lastMsg = "";
+  // ---------- a tap ----------
   let pressA = null;
-
-  function press(k) {
-    pressA?.cancel();
-    // the ball sinks into its cup and springs back
-    pressA = orbEl.animate([
-      { transform: "none" },
-      { transform: `translateY(4px) scale(${(0.96 - k * 0.02).toFixed(3)},${(0.93 - k * 0.03).toFixed(3)})`, offset: 0.28 },
-      { transform: "translateY(-3px) scale(1.02)", offset: 0.7 },
-      { transform: "none" },
-    ], { duration: 170, easing: "cubic-bezier(.25,.7,.35,1)" });
-  }
-  function floater(txt) {
-    if (reduced()) return;
-    const sr = smash.getBoundingClientRect(), br = orbEl.getBoundingClientRect();
-    const f = h("span", { class: "plus" }, txt);
-    f.style.left = `${br.left - sr.left + br.width * rnd(0.35, 0.75)}px`; f.style.top = `${br.top - sr.top + 6}px`;
-    smash.append(f);
-    const dx = rnd(20, 70) * (Math.random() < 0.8 ? 1 : -1), dy = -rnd(34, 70), rot = rnd(-25, 25);
-    const big = 1 + Math.min(1, heat / BREAK_AT) * 0.7;
-    const a = f.animate([
-      { transform: "translate(-50%,-50%) scale(.4)", opacity: 0 },
-      { transform: `translate(calc(-50% + ${dx * 0.35}px), calc(-50% + ${dy * 0.5}px)) scale(${big}) rotate(${rot * 0.5}deg)`, opacity: 1, offset: 0.25 },
-      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${big * 0.8}) rotate(${rot}deg)`, opacity: 0 },
-    ], { duration: 600, easing: "cubic-bezier(.2,.7,.4,1)" });
-    a.onfinish = () => f.remove();
-    const all = smash.querySelectorAll(".plus"); if (all.length > 20) all[0].remove();
-  }
-  function comboMessage() {
-    return heat < 12 ? "SMASH!" : heat < 20 ? "HARDER!!" : heat < 30 ? "IT'S CRACKING 😬" : heat < 40 ? "IT CAN'T TAKE MUCH MORE" : "OH NO OH NO";
-  }
-  function updateCombo(pop) {
-    const on = streak >= 4 && !busy;
-    smash.classList.toggle("combo-on", on);
-    if (!on) return;
-    combo.style.setProperty("--k", Math.min(1, heat / BREAK_AT).toFixed(2));
-    comboN.textContent = `${streak} HITS`;
-    const m = comboMessage(); if (m !== lastMsg) { lastMsg = m; comboMsg.textContent = m; }
-    if (pop && !reduced()) comboN.animate([{ transform: "scale(1.35) rotate(-4deg)" }, { transform: "scale(1) rotate(0)" }], { duration: 140, easing: "cubic-bezier(.2,.9,.3,1.4)" });
-  }
-  function crackFx(i) {
-    snd.crack(i); vib(20 + i * 12);
-    const x = CX - PW / 2 + impact[0], y = CY - PH / 2 + impact[1];
-    flash.animate([{ opacity: 0.55 }, { opacity: 0 }], { duration: 220, easing: "ease-out" });
-    jolt = 1;
-    if (!reduced()) { shards(x, y, 5 + i * 4, 240 + i * 50); sparks(x, y, 8 + i * 5, 340); ring(x, y, 4, 50, 0.8, "255,240,220", 3); }
-  }
-  function hit() {
-    if (busy) return;
+  function tap() {
     audio();
-    heat += 1; streak += 1; lastHit = performance.now(); lastHitT = lastHit; startOrb();
-    const k = Math.min(1, heat / BREAK_AT);
-    press(k); snd.thump(k); vib(heat > 30 ? 12 : 6);
-    floater(countLike() ? "+1" : "♥");
-    if (!reduced()) {
-      ring(CX, CY, RX + 2, RX + 16 + k * 24, 0.25 + k * 0.4, k > 0.5 ? "255,170,80" : "200,160,255", 2.5 + k * 3, 0.3);
-      if (heat > 12) edgeSparks(Math.min(6, Math.floor((heat - 12) / 5) + 1), 260 + k * 180);
-    }
-    updateCombo(true);
-    for (let i = 0; i < 3; i++) if (heat >= CRACK_AT[i] && cracked <= i) { cracked = i + 1; revealCrack(i); crackFx(i); }
-    if (heat >= BREAK_AT) { breakIt(); return; }
-    kick();
+    const now = performance.now();
+    charge = Math.min(1, charge + (now - lastTap < 600 ? 0.11 : 0.16));
+    lastTap = now;
+    if (showing !== "like") { showing = "like"; }
+    nextSwap = now + 7000;
+    start();
+    pressA?.cancel();
+    pressA = orbEl.animate([
+      { transform: "scale(1)" }, { transform: "scale(.94)", offset: 0.25 }, { transform: "scale(1.045)", offset: 0.65 }, { transform: "scale(1)" },
+    ], { duration: 320, easing: "cubic-bezier(.3,.7,.3,1)" });
+    chime(charge); vib(5);
+    if (charge > 0.6 && !swelled) { swelled = true; swell(); }
+    const counted = countLike();
+    if (reduced()) { if (counted) setShown(serverTotal + pending + inflight); return; }
+    rings.push({ t: 0, life: 0.5 + charge * 0.2, grow: 22 + charge * 26, hue: pickHue() });
+    const n = 2 + Math.round(charge * 3);
+    for (let i = 0; i < n; i++) spawnStrand(charge);
+    for (let i = 0; i < 3 + Math.round(charge * 5); i++) spawnMote();
+    if (counted) spawnDart(() => setShown(serverTotal + pending + inflight, true));
   }
-  function kick() { if (!raf) { lastT = performance.now(); raf = requestAnimationFrame(loop); } }
-  function loop(t) {
-    const dt = Math.min(0.05, Math.max(0, (t - lastT) / 1000)); lastT = t;
-    if (!busy) {
-      const idle = performance.now() - lastHit > IDLE_MS;
-      heat = Math.max(0, heat - (idle ? FAST_DECAY : SLOW_DECAY) * dt);
-      if (streak && idle && heat < 2) { streak = 0; updateCombo(false); }
-      else if (streak) updateCombo(false);
-      while (cracked > 0 && heat < CRACK_AT[cracked - 1] - 6) {
-        cracked--; hideCrack(cracked);
-        if (cracked === 0) setTimeout(() => { if (!cracked && !busy) buildCracks(); }, 1000);
-      }
-      const k = Math.min(1, heat / BREAK_AT);
-      wrap.style.setProperty("--heat", k.toFixed(3));
-      jolt = Math.max(0, jolt - dt * 7);
-      const amp = reduced() ? 0 : Math.max(0, heat - 6) * 0.12 + jolt * 5;
-      if (amp > 0.01) {
-        const s = t / 1000;
-        const x = amp * (Math.sin(s * 47 + 1.3) * 0.6 + Math.sin(s * 83) * 0.4);
-        const y = amp * 0.6 * (Math.sin(s * 59 + 0.7) * 0.6 + Math.sin(s * 97 + 2) * 0.4);
-        wrap.style.transform = `translate(${x.toFixed(2)}px,${y.toFixed(2)}px) rotate(${(amp * 0.3 * Math.sin(s * 61 + 0.4)).toFixed(2)}deg)`;
-      } else wrap.style.transform = "";
-      if (heat >= 30 && !reduced()) {
-        smokeT -= dt;
-        if (smokeT <= 0) { smokeT = 0.16 - (heat - 30) * 0.004; smoke(CX + rnd(-40, 40), CY - 20, 1, { a: 0.28, r: 6, gr: 22 }); }
-      }
-    }
-    step(dt); draw();
-    if (heat > 0 || parts.length || busy) raf = requestAnimationFrame(loop);
-    else { raf = 0; wrap.style.transform = ""; wrap.style.setProperty("--heat", "0"); ctx.clearRect(0, 0, W, W); }
-  }
-  function quake(px, ms) {
-    if (reduced()) return;
-    const kf = [];
-    for (let i = 0; i <= 7; i++) { const d = 1 - i / 7; kf.push({ transform: i === 7 ? "none" : `translate(${(rnd(-1, 1) * px * d).toFixed(1)}px,${(rnd(-1, 1) * px * d).toFixed(1)}px)` }); }
-    root.animate(kf, { duration: ms });
-  }
-
-  // ---------- break -> box it -> ship it -> new one ----------
-  // both boxes stand right side up; "fresh" has flaps that open, "cover" is taped shut
-  function crate(kind) {
-    const prints = h("div", { class: "prints" },
-      h("span", { class: "p1" }, "GAME CLUB"), h("span", { class: "p2" }, "PARTS DEPT."),
-      h("span", { class: "up" }, h("b", null, "↑↑"), "THIS SIDE UP"),
-      h("span", { class: "frag" }, "FRAGILE"),
-      h("span", { class: "lab" }, h("i"), "1× LIKE BUTTON"));
-    return h("div", { class: `crate ${kind}`, "aria-hidden": "true" },
-      kind === "fresh" ? h("div", { class: "rays" }) : null,
-      h("div", { class: "cs" }),
-      kind === "fresh"
-        ? [h("div", { class: "fl l" }, h("i", { class: "tp2" })), h("div", { class: "fl r" }, h("i", { class: "tp2" }))]
-        : h("div", { class: "ct" }, h("i", { class: "tp2" })),
-      h("div", { class: "cf" }, prints, h("i", { class: "tp" })));
-  }
-  function readyAgain() {
-    buildCracks(); cracked = 0; heat = 0; streak = 0; jolt = 0;
-    dead = false; orbEl.classList.remove("dead");
-    busy = false; smash.classList.remove("busy"); btn.removeAttribute("aria-disabled");
-    kick();
-  }
-  async function breakIt() {
-    busy = true; smash.classList.add("busy"); smash.classList.remove("combo-on"); btn.setAttribute("aria-disabled", "true");
-    for (let i = 0; i < 3; i++) if (cracked <= i) revealCrack(i);
-    cracked = 3;
-    if (reduced()) {
-      snd.shatter(); dead = true; orbEl.classList.add("dead");
-      const st = h("div", { class: "dmg still" }, h("b", null, "DAMAGED"), h("small", null, "PLEASE STOP SMASHING"));
-      stageEl.append(st);
-      await wait(1600); st.remove(); readyAgain(); return;
-    }
-    // 1) hit-stop: a frozen, white-hot beat before it goes
-    wrap.style.transform = "scale(1.08)"; wrap.style.setProperty("--heat", "1");
-    flash.animate([{ opacity: 0.9 }, { opacity: 0.9 }], { duration: 90 });
-    snd.crack(2); vib([40, 30, 90]);
-    await wait(90);
-    // 2) it blows
-    snd.shatter();
-    flash.animate([{ opacity: 0.95 }, { opacity: 0 }], { duration: 320, easing: "ease-out" });
-    dead = true; orbEl.classList.add("dead"); wrap.style.setProperty("--heat", "0");
-    shards(CX, CY, 34, 460, GLASS, 1, 30); shards(CX, CY, 10, 340, ["#ffffff", "#e8f6ff"], 0.8, 30);
-    edgeSparks(34, 460);
-    ring(CX, CY, 30, 130, 0.9, "255,230,200", 5, 0.45); ring(CX, CY, 20, 95, 0.6, "200,160,255", 3, 0.6);
-    smoke(CX, CY - 8, 9, { c: "120,90,160", a: 0.45, r: 9, gr: 34, spread: 30 });  // the fog escapes
-    quake(8, 420);
-    wrap.style.transform = "";
-    play(wrap, [{ transform: "scale(1.08)" }, { transform: "translate(2px,5px) rotate(6deg) scale(.96)" }], { duration: 300, easing: "cubic-bezier(.2,.9,.3,1.3)" });
-    kick();
-    // 3) sputtering, short-circuiting
-    for (let i = 0; i < 4; i++) {
-      await wait(rnd(110, 190));
-      snd.zap();
-      const [x, y] = edge(rnd(0, TAU));
-      sparks(x, y, 6, 260);
-      orbEl.animate([{ filter: "brightness(1.6)" }, { filter: "brightness(1)" }], { duration: 130 });
-    }
-    smoke(CX, CY - 14, 5, { a: 0.35, r: 8, gr: 26, spread: 30 });
-    await wait(220);
-    // 4) a box drops down over it, right side up
-    const c1 = crate("cover"); stageEl.append(c1);
-    snd.whoosh(0.4, 0.22);
-    await play(c1, [
-      { transform: "translate(22px,-230px) rotate(-14deg)", easing: "cubic-bezier(.5,0,.85,.4)" },
-      { transform: "translate(0,0) rotate(0deg)" },
-    ], { duration: 460 }).finished;
-    snd.thud(); vib(45); quake(6, 320);
-    wrap.style.visibility = "hidden"; wrap.getAnimations().forEach((a) => a.cancel());
-    dust(CX - 76, GROUND, 8, -1); dust(CX + 76, GROUND, 8, 1);
-    c1.getAnimations().forEach((a) => a.cancel());
-    await play(c1, [{ transform: "scale(1.08,.86)" }, { transform: "scale(.97,1.04)", offset: 0.45 }, { transform: "scale(1.01,.99)", offset: 0.75 }, { transform: "none" }], { duration: 300, easing: "ease-out" }).finished;
-    // 5) DAMAGED sticker slaps on
-    await wait(110);
-    const st = h("div", { class: "dmg" }, h("b", null, "DAMAGED"), h("small", null, "PLEASE STOP SMASHING"));
-    c1.append(st);
-    await play(st, [
-      { transform: "translate(-50%,-50%) translate(46px,-90px) rotate(-40deg) scale(2.6)", opacity: 0 },
-      { opacity: 1, offset: 0.35 },
-      { transform: "translate(-50%,-50%) rotate(-10deg) scale(1)", opacity: 1 },
-    ], { duration: 190, easing: "cubic-bezier(.65,0,.9,.35)" }).finished;
-    snd.slap(); vib(30);
-    play(st, [
-      { transform: "translate(-50%,-50%) rotate(-10deg) scale(1.14,.84)", opacity: 1 },
-      { transform: "translate(-50%,-50%) rotate(-10deg) scale(.97,1.03)", opacity: 1, offset: 0.5 },
-      { transform: "translate(-50%,-50%) rotate(-10deg) scale(1)", opacity: 1 },
-    ], { duration: 240, easing: "ease-out" });
-    play(c1, [{ transform: "scale(.96,1.03) rotate(-1deg)" }, { transform: "none" }], { duration: 220, easing: "cubic-bezier(.3,1.6,.5,1)" });
-    ring(CX - 8, CY + 27, 14, 64, 0.55, "255,255,255", 3, 0.3, 0.6);
-    await wait(520);
-    // 6) yeet it off the screen
-    const r = stageEl.getBoundingClientRect(), z = r.width / 170 || 1;
-    snd.whoosh(0.55, 0.5);
-    c1.getAnimations().forEach((a) => a.cancel());
-    dust(CX + 30, GROUND, 6, 1);
-    const shadow = "drop-shadow(0 8px 6px rgba(0,0,0,.55))";
-    await play(c1, [
-      { transform: "none", filter: `${shadow} blur(0px)`, easing: "cubic-bezier(.3,0,.3,1)" },
-      { transform: "translate(-14px,2px) rotate(-6deg)", filter: `${shadow} blur(0px)`, offset: 0.22, easing: "cubic-bezier(.55,0,.95,.45)" },
-      { transform: `translate(${(innerWidth - r.left + 80) / z}px,-60px) rotate(32deg)`, filter: `${shadow} blur(3px)` },
-    ], { duration: 620 }).finished;
-    c1.remove();
-    // 7) a fresh box slides in from the left
-    await wait(240);
-    const c2 = crate("fresh"); stageEl.append(c2);
-    snd.skid(0.2);
-    await play(c2, [
-      { transform: `translate(${-(r.right + 80) / z}px,0) rotate(-6deg)`, easing: "cubic-bezier(.12,.75,.3,1)" },
-      { transform: "translate(10px,0) rotate(2.5deg)", offset: 0.8, easing: "cubic-bezier(.4,0,.4,1)" },
-      { transform: "none" },
-    ], { duration: 740 }).finished;
-    snd.thud(0.45); dust(CX - 72, GROUND, 6, -1); quake(3, 200);
-    await wait(240);
-    // 8) something's rattling in there...
-    snd.rattle();
-    c2.getAnimations().forEach((a) => a.cancel());
-    await c2.animate([
-      { transform: "none" }, { transform: "translate(-2px,0) rotate(-1.5deg)" }, { transform: "translate(2px,-3px) rotate(1.5deg)" },
-      { transform: "translate(-1px,0) rotate(-1deg)" }, { transform: "translate(1px,-2px) rotate(1deg)" }, { transform: "none" },
-    ], { duration: 360 }).finished;
-    await wait(110);
-    // 9) flaps burst open and a brand new button jumps out
-    buildCracks(); dead = false; orbEl.classList.remove("dead");
-    const [fl, fr] = c2.querySelectorAll(".fl"), tape = c2.querySelector(".tp"), rays = c2.querySelector(".rays");
-    snd.flaps(); vib(20);
-    c2.animate([{ transform: "scale(1.05,.92)" }, { transform: "scale(.98,1.03)", offset: 0.5 }, { transform: "none" }], { duration: 260, easing: "ease-out" });
-    play(fl, [{ transform: "rotate(0)" }, { transform: "rotate(-168deg)", offset: 0.7 }, { transform: "rotate(-150deg)" }], { duration: 420, easing: "cubic-bezier(.2,.9,.3,1)" });
-    play(fr, [{ transform: "rotate(0)" }, { transform: "rotate(168deg)", offset: 0.7 }, { transform: "rotate(150deg)" }], { duration: 420, easing: "cubic-bezier(.2,.9,.3,1)" });
-    play(tape, [{ transform: "scaleY(1)", opacity: 1 }, { transform: "scaleY(0)", opacity: 0 }], { duration: 140 });
-    play(rays, [{ opacity: 0, transform: "translate(-50%,-100%) scaleY(.2)" }, { opacity: 1, transform: "translate(-50%,-100%) scaleY(1)" }], { duration: 320, easing: "ease-out" });
-    glints(CX, BOX_TOP, 12, 50);
-    await wait(130);
-    wrap.style.visibility = "visible"; wrap.style.zIndex = "6";
-    snd.chime();
-    const jump = wrap.animate([
-      { transform: "translateY(-40px) scale(.3)", opacity: 0, easing: "cubic-bezier(.15,.8,.35,1)" },
-      { transform: "translateY(-92px) scale(.95) rotate(-8deg)", opacity: 1, offset: 0.45, easing: "cubic-bezier(.55,0,.9,.5)" },
-      { transform: "translateY(4px) scale(1.06,.9)", opacity: 1, offset: 0.8, easing: "cubic-bezier(.2,.7,.3,1)" },
-      { transform: "none", opacity: 1 },
-    ], { duration: 820 });
-    await wait(310);
-    play(rays, [{ opacity: 1 }, { opacity: 0 }], { duration: 300 });
-    play(c2, [{ transform: "none", opacity: 1 }, { transform: "translateY(14px) scale(1.04,.2)", opacity: 0 }], { duration: 300, easing: "cubic-bezier(.5,0,.9,.5)" });
-    await jump.finished;
-    wrap.style.zIndex = "";
-    snd.thump(0); vib(15); lastHitT = performance.now();
-    dust(CX - 50, BTN_FLOOR, 4, -1); dust(CX + 50, BTN_FLOOR, 4, 1); glints(CX, CY, 12, 50);
-    c2.remove();
-    readyAgain();
-  }
-
-  // ---------- input ----------
-  btn.addEventListener("pointerdown", (e) => { if (e.button !== 0) return; e.preventDefault(); hit(); });
-  btn.addEventListener("keydown", (e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); hit(); } });
+  btn.addEventListener("pointerdown", (e) => { if (e.button !== 0) return; e.preventDefault(); tap(); });
+  btn.addEventListener("keydown", (e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); tap(); } });
   btn.addEventListener("click", (e) => e.preventDefault());
   btn.addEventListener("contextmenu", (e) => e.preventDefault());
 
   // ---------- go ----------
-  buildCracks(); setShown(0);
+  setShown(0); start();
   loadSayings().catch(() => showSaying());
   loadTotal().catch(() => {});
   let rtT = 0;

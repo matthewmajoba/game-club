@@ -252,79 +252,39 @@ textarea{resize:vertical;min-height:44px}
 .pep-quote{margin:0;font:400 clamp(20px,2.6vw,28px)/1.22 var(--sharpie);color:#fff;text-shadow:3px 3px 0 #6d0f45,0 0 20px rgba(255,31,142,.3);text-wrap:balance;overflow-wrap:anywhere}
 .pep-quote::before{content:"\201C";color:#ffe53f;margin-right:.08em}
 .pep-quote::after{content:"\201D";color:#ffe53f;margin-left:.04em}
-.smash{position:relative;display:flex;align-items:center;gap:12px}
-.smash-stage{position:relative;width:170px;height:140px;flex:none}
-.smash-fx{position:absolute;left:-115px;top:-133px;width:400px;height:400px;pointer-events:none;z-index:5}
+.smash{position:relative;display:flex;align-items:center;gap:16px}
+.smash-stage{position:relative;width:110px;height:104px;flex:none}
+.smash-fx{position:absolute;left:-145px;top:-148px;width:400px;height:400px;pointer-events:none}
+.smash-fx.back{z-index:1}
+.smash-fx.front{z-index:3}
 
-/* combo counter that pops up over the button while you smash */
-.combo{position:absolute;left:50%;top:2px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;opacity:0;pointer-events:none;z-index:8;transition:opacity .15s;white-space:nowrap}
-.smash.combo-on .combo{opacity:1}
-.combo b{display:inline-block;font:400 calc(20px + var(--k,0)*12px)/1 Bangers,Impact,sans-serif;letter-spacing:.03em;color:color-mix(in srgb,#ffe53f,#ff2a2a calc(var(--k,0)*100%));-webkit-text-stroke:1px #000;text-shadow:2px 2px 0 #000}
-.combo span{font:400 13px/1 Bangers,Impact,sans-serif;letter-spacing:.04em;color:#fff;background:#000;padding:3px 6px 2px;transform:rotate(-3deg)}
-
-/* the button: a crystal ball (insides drawn by a WebGL shader in js/pep.js) on a gold stand */
-.sb-wrap{--heat:0;position:absolute;left:35px;top:22px;width:100px;height:118px;z-index:3}
-.sb{display:block;position:relative;width:100%;height:100%;margin:0;padding:0;border:0;background:none;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-.sb:focus-visible{outline:3px solid var(--lime);outline-offset:4px;border-radius:12px}
-.smash.busy .sb{cursor:default}
-.sb .orb{position:absolute;left:7px;top:2px;width:86px;height:86px;border-radius:50%;overflow:hidden;z-index:1;transform-origin:50% 90%;
-  box-shadow:0 0 18px 3px rgba(190,120,255,.38),0 0 34px 6px rgba(255,80,200,.18),0 0 calc(var(--heat)*36px) calc(var(--heat)*8px) rgba(255,120,30,calc(var(--heat)*.85));
-  transition:box-shadow .3s}
-.sb:hover .orb{box-shadow:0 0 22px 5px rgba(190,120,255,.55),0 0 40px 8px rgba(255,80,200,.28),0 0 calc(var(--heat)*36px) calc(var(--heat)*8px) rgba(255,120,30,calc(var(--heat)*.85))}
+/* the like button: a floating crystal ball (its insides are a WebGL shader in js/pep.js) */
+.sb-wrap{--charge:0;position:absolute;left:12px;top:9px;width:86px;height:86px;z-index:2;animation:levitate 4.2s ease-in-out infinite}
+.sb{display:block;position:relative;width:100%;height:100%;margin:0;padding:0;border:0;background:none;border-radius:50%;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.sb:focus-visible{outline:3px solid var(--lime);outline-offset:5px}
+.sb .orb{position:absolute;inset:0;border-radius:50%;overflow:hidden;
+  box-shadow:0 0 calc(16px + var(--charge)*30px) calc(3px + var(--charge)*9px) rgba(190,120,255,calc(.38 + var(--charge)*.45)),
+             0 0 calc(34px + var(--charge)*56px) calc(6px + var(--charge)*14px) rgba(255,80,200,calc(.18 + var(--charge)*.32));
+  transition:box-shadow .25s}
+.sb:hover .orb{box-shadow:0 0 calc(22px + var(--charge)*30px) calc(5px + var(--charge)*9px) rgba(190,120,255,calc(.52 + var(--charge)*.4)),
+             0 0 calc(42px + var(--charge)*56px) calc(8px + var(--charge)*14px) rgba(255,80,200,calc(.26 + var(--charge)*.3))}
 .sb .orb-gl{position:absolute;inset:0;width:100%;height:100%;display:block}
-.sb .orb.dead{box-shadow:0 0 8px rgba(0,0,0,.6)}
+.sb .orb-lbl{display:none}
 /* fallback ball for browsers without WebGL */
-.sb .orb.nogl{background:radial-gradient(circle at 34% 28%,#fff 0 5%,rgba(255,255,255,0) 16%),radial-gradient(circle at 50% 55%,#ff4fb8 0 13%,rgba(255,79,184,0) 30%),conic-gradient(from 0deg,#7af0ff,#b78cff,#ff7ad9,#ffe58a,#7af0ff);animation:orbhue 8s linear infinite}
+.sb .orb.nogl{background:radial-gradient(circle at 34% 28%,#fff 0 5%,rgba(255,255,255,0) 16%),conic-gradient(from 0deg,#7af0ff,#b78cff,#ff7ad9,#ffe58a,#7af0ff);animation:orbhue 8s linear infinite}
 .sb .orb.nogl .orb-gl{display:none}
+.sb .orb.nogl .orb-lbl{display:grid;place-items:center;position:absolute;inset:0;font:900 13px "Arial Black",Arial,sans-serif;color:#fff;text-shadow:0 0 6px #6a00a8,0 1px 2px #000}
 @keyframes orbhue{to{filter:hue-rotate(360deg)}}
-.sb .hot{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 55%,rgba(255,240,190,.9) 0,rgba(255,170,60,.6) 35%,rgba(255,80,0,0) 75%);mix-blend-mode:screen;opacity:calc(var(--heat)*.55);pointer-events:none}
-.sb .orb>svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-.sb .ck{opacity:0;transition:opacity .9s}
-.sb .ck path{fill:none;stroke-linecap:round;stroke-linejoin:round}
-.sb .ck .dk{stroke:#14051f;stroke-width:1.3}
-.sb .ck .lt{stroke:rgba(235,245,255,.9);stroke-width:.6;transform:translate(.5px,.5px)}
-.sb .ck .dent{fill:rgba(20,5,30,.5);stroke:rgba(235,245,255,.75);stroke-width:.6}
-.sb .flash{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,#fff,#f3e8ff 55%,rgba(230,200,255,0));opacity:0;pointer-events:none}
-.sb .stand{position:absolute;left:0;bottom:0;width:100px;height:50px;z-index:2;overflow:visible;filter:drop-shadow(0 4px 4px rgba(0,0,0,.6));pointer-events:none}
+/* soft pool of light under the floating ball */
+.smash-stage .pool{position:absolute;left:24px;right:24px;bottom:0;height:12px;border-radius:50%;background:radial-gradient(closest-side,rgba(205,140,255,.55),rgba(205,140,255,0));animation:pool 4.2s ease-in-out infinite;pointer-events:none}
+@keyframes levitate{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes pool{0%,100%{transform:scaleX(1);opacity:.9}50%{transform:scaleX(.82);opacity:.55}}
 
 /* like counter: an old-school hit counter */
 .hits{display:grid;justify-items:center;gap:3px}
 .hits .cells{display:flex;gap:1px;padding:3px;background:#1c1c1c;border:2px outset #777;box-shadow:0 3px 8px rgba(0,0,0,.6)}
 .hits .cells b{display:block;width:15px;height:23px;overflow:hidden;font:700 16px/23px Verdana,Geneva,sans-serif;text-align:center;color:#fff;background:linear-gradient(#3b3b3b,#0c0c0c 49%,#000 51%,#262626);border:1px solid #555;box-shadow:inset 0 1px 0 rgba(255,255,255,.18)}
 .hits small{font:700 10px var(--ui);letter-spacing:.14em;text-transform:uppercase;color:#ff8ad8}
-.plus{position:absolute;z-index:9;pointer-events:none;font:400 22px/1 Bangers,Impact,sans-serif;color:#ffe53f;-webkit-text-stroke:1px #000;text-shadow:2px 2px 0 #000;white-space:nowrap}
-
-/* cardboard boxes (front + top + side, drawn in a 156x112 box) */
-:root{--cb-noise:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .3 0 0 0 0 .17 0 0 0 0 .05 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E")}
-.crate{position:absolute;left:7px;bottom:0;width:156px;height:112px;z-index:4;transform-origin:50% 100%;pointer-events:none;filter:drop-shadow(0 8px 6px rgba(0,0,0,.55))}
-.crate>div{position:absolute}
-.crate i{position:absolute;inset:0;display:block}
-.crate .cs{inset:0;clip-path:polygon(140px 20px,156px 4px,156px 96px,140px 112px);background:var(--cb-noise),linear-gradient(90deg,#a26f3b,#7c5128)}
-.crate .ct,.crate .fl{inset:0;background:var(--cb-noise),linear-gradient(170deg,#e6b97e,#cf9b5d)}
-.crate .ct{clip-path:polygon(0 20px,140px 20px,156px 4px,16px 4px)}
-.crate .fl.l{clip-path:polygon(0 20px,70px 20px,86px 4px,16px 4px);transform-origin:8px 12px}
-.crate .fl.r{clip-path:polygon(70px 20px,140px 20px,156px 4px,86px 4px);transform-origin:148px 12px;background:var(--cb-noise),linear-gradient(170deg,#dcae72,#c18c52)}
-.crate .tp2{background:linear-gradient(135deg,rgba(255,250,232,.5),rgba(236,214,160,.88) 45%,rgba(255,250,232,.55))}
-.crate .ct .tp2{clip-path:polygon(64px 20px,76px 20px,92px 4px,80px 4px)}
-.crate .fl.l .tp2{clip-path:polygon(64px 20px,70px 20px,86px 4px,80px 4px)}
-.crate .fl.r .tp2{clip-path:polygon(70px 20px,76px 20px,92px 4px,86px 4px)}
-.crate .cf{left:0;top:20px;width:140px;height:92px;overflow:hidden;color:rgba(58,28,8,.8);background:linear-gradient(180deg,rgba(255,240,210,.12),rgba(60,30,5,.2)),repeating-linear-gradient(90deg,rgba(80,45,10,.07) 0 1px,transparent 1px 6px),var(--cb-noise),#c58e53;box-shadow:inset 0 0 0 1.5px rgba(90,50,15,.6),inset 0 -12px 18px rgba(70,35,5,.3),inset 0 8px 12px rgba(255,235,200,.12)}
-.crate .cf .tp{inset:0 auto auto 64px;width:12px;height:22px;transform-origin:top;background:linear-gradient(90deg,rgba(255,250,232,.5),rgba(236,214,160,.88) 50%,rgba(255,250,232,.5))}
-.crate .prints{position:absolute;inset:0}
-.prints span{position:absolute}
-.prints .p1{left:8px;top:8px;font:400 14px/1 "Black Ops One",Impact,sans-serif;letter-spacing:.03em}
-.prints .p2{left:9px;top:25px;font:700 6px/1 var(--ui);letter-spacing:.3em}
-.prints .up{right:6px;top:7px;display:grid;justify-items:center;font:700 5px/1.2 var(--ui);letter-spacing:.06em}
-.prints .up b{font:900 13px/1 Arial,sans-serif;letter-spacing:-2px}
-.prints .frag{left:8px;bottom:9px;font:400 12px/1 "Black Ops One",Impact,sans-serif;color:rgba(185,22,22,.82);border:2px solid currentColor;padding:3px 5px 1px;transform:rotate(-7deg);letter-spacing:.06em}
-.prints .lab{right:7px;bottom:7px;width:52px;background:#f5f2ea;color:#1e1e1e;font:700 5px/1.2 var(--ui);padding:3px 4px 2px;box-shadow:0 1px 2px rgba(0,0,0,.35);transform:rotate(1.5deg);display:grid;gap:2px}
-.prints .lab i{position:static;height:10px;background:repeating-linear-gradient(90deg,#111 0 1px,transparent 1px 3px,#111 3px 5px,transparent 5px 6px,#111 6px 7px,transparent 7px 10px)}
-.crate .rays{left:78px;top:12px;width:190px;height:150px;transform:translate(-50%,-100%) scaleY(.2);transform-origin:50% 100%;opacity:0;background:repeating-conic-gradient(from -90deg at 50% 100%,rgba(255,238,160,0) 0deg 8deg,rgba(255,238,160,.6) 8deg 12deg);-webkit-mask:radial-gradient(60% 100% at 50% 100%,#000 25%,transparent 75%);mask:radial-gradient(60% 100% at 50% 100%,#000 25%,transparent 75%);mix-blend-mode:screen}
-.dmg{position:absolute;left:70px;top:66px;z-index:2;transform:translate(-50%,-50%) rotate(-10deg);display:grid;justify-items:center;gap:2px;padding:5px 10px 4px;background:linear-gradient(160deg,#ff2a3d,#c80018 60%,#a50014);color:#fff;border:2px solid #fff;border-radius:6px;box-shadow:0 0 0 2px #7d000f,0 3px 0 rgba(0,0,0,.3),0 6px 10px rgba(0,0,0,.35);white-space:nowrap}
-.dmg b{font:400 18px/1 "Black Ops One",Impact,sans-serif;letter-spacing:.06em;text-shadow:0 2px 0 #7d000f}
-.dmg small{font:700 5.5px/1 var(--ui);letter-spacing:.14em}
-.dmg::after{content:"";position:absolute;inset:0;border-radius:4px;background:linear-gradient(115deg,rgba(255,255,255,.35),rgba(255,255,255,0) 40%);pointer-events:none}
-.dmg.still{left:85px;top:64px;z-index:7}
 
 /* Love Notes dialog: saved sayings on notebook paper */
 .lnotes{display:grid;gap:12px;max-height:min(60vh,520px);overflow:auto;padding:4px 4px 8px}
