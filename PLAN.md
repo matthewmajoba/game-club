@@ -114,12 +114,16 @@ Hannah, Junior, Katie, Sarah, Anthony, Giselle, Michael, Kat, Kalon, Matt (admin
   address above; update them if the domain changes). Icons + `site.webmanifest` for home screens.
   Rebuild images with `python scripts/make_share_images.py`.
 - Known gap: Steam search can show adult-only games in results; nothing filters them yet.
-- **Daily pep talk** (`js/pep.js`, migration `20261116020000_daily_pep_talk.sql`): 30 sayings in
-  `public.sayings`, one per day, flipping at midnight Pacific. SMASH THE LIKE BUTTON adds to a
-  shared pool in `public.saying_likes` (members only; visitors can smash for fun but it doesn't
-  count). Server caps: 40 per call, 5000 per member per day. Smash "heat": +1 per hit, drains 1/s
-  while you keep going and 10/s once you stop for half a second; cracks at 20/30/40, breaks at 50
-  (box flips over it, DAMAGED sticker, box flies off, new box opens with a fresh button).
+- **Daily saying + like button** (`js/pep.js`, migration `20261116020000_daily_pep_talk.sql`): 30
+  sayings in `public.sayings`, one per day, flipping at midnight Pacific. The glossy LIKE button
+  adds to one shared pool per day in `public.saying_likes` (members only; visitors can smash for
+  fun but it doesn't count). Server caps: 40 per call, 5000 per member per day. Smash "heat": +1
+  per hit, drains 1/s while you keep going and 10/s once you stop for half a second; cracks at
+  20/30/40, breaks at 50 (box drops over it right side up, DAMAGED sticker, box flies off, new box
+  opens with a fresh button).
+- **Love Notes** (migration `20261116030000_love_notes.sql`, header button): every finished day's
+  saying + total likes, saved in `public.love_notes`. Saved lazily by `archive_love_notes()` when
+  anyone opens Love Notes (finished days can't change, so late saving is still exact).
 - Re-deploy after changes: `npx supabase db push` (new migration file) and
   `npx supabase functions deploy games --no-verify-jwt --use-api`.
 
