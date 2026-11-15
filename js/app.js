@@ -288,14 +288,13 @@ function renderWall() {
 
   // returns 'n shame bin
   const out = S.games.filter((g) => g.status === "withdrawn");
-  $("bin").replaceChildren(h("span", { class: "lbl" }, "RETURNS 'N SHAME"),
+  $("bin").replaceChildren(h("span", { class: "lbl" }, "RETURNS OF SHAME"),
     ...(out.length ? out.map((g, i) => h("div", { class: "scrap", vars: { "--r": i % 2 ? "4deg" : "-5deg" } }, `${member(g.member_id)?.name}: ${g.title}`))
       : [h("span", { class: "none" }, "nobody has chickened out... yet 👀")]));
   const shamed = S.members.filter((m) => m.shame > 0).sort((a, b) => b.shame - a.shame);
   $("shame").replaceChildren(...shamed.map((m) => h("button", { type: "button", onclick: sass }, `${m.name}'s shame: ${m.shame} 😤`)),
     h("small", null, shamed.length ? "tap a shame counter for sass" : "backing out of a pick = +1 shame"));
 
-  $("legend").replaceChildren(...TIERS.map((t, i) => h("div", null, h("span", { class: `t${i}`, vars: { "font-size": "18px" } }, flip(t)), h("b", null, t.k), h("span", { class: "r" }, t.rule))));
 }
 
 // ---------- render: chat ----------
