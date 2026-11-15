@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Game Club</title>
+<meta name="description" content="Like book club, but for games.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%AE%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Bungee&family=Creepster&family=Gochi+Hand&family=Metal+Mania&family=Monoton&family=Permanent+Marker&family=Press+Start+2P&family=Rock+Salt&family=Rubik+Glitch&family=Sedgwick+Ave+Display&family=UnifrakturMaguntia&family=VT323&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="tab-wall">
+<main class="page">
+  <header class="panel hdr">
+    <h1 class="logo">GAME CLUB</h1>
+    <div class="tagline">★ est. 2026 ★ like book club but for games ★ <span id="round-tag">round 1: under 8 hrs</span> ★</div>
+    <nav class="nav" id="nav"></nav>
+  </header>
+
+  <div class="ticker" aria-label="Stupid but true game facts"><div class="lbl"><i></i>GCNN</div><div class="run"><span id="facts">Loading the news...</span></div></div>
+
+  <div class="cols">
+    <section class="panel wall" aria-label="Game wall">
+      <div class="lightbox"><h2>NEW THIS ROUND!</h2><span class="rnd" id="round-badge">Round 1 · under 8 hrs</span></div>
+      <div class="budget" id="budget"></div>
+      <div class="cabinet">
+        <div class="glass"><div class="items" id="shelf"></div></div>
+        <div class="base"><span class="assoc">Please ask a club member for assistance</span><span class="lock" aria-hidden="true"></span></div>
+      </div>
+      <div class="bin-row">
+        <div class="bin" id="bin"><span class="lbl">RETURNS 'N SHAME</span></div>
+        <div class="shame" id="shame"></div>
+      </div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <aside class="im" aria-label="Chat room">
+      <div class="win">
+        <div class="tbar"><span class="ico">✦</span><span class="t">Game Club Chat Room</span></div>
+        <div class="menu" id="chat-menu"></div>
+        <div class="here glit" id="here"></div>
+        <div class="chatlog glit" id="chatlog" aria-live="polite"></div>
+        <div id="chat-send"></div>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span class="star">★</span>
+    <span class="badge">Best viewed in 1024x768</span>
+    <span class="badge">Made w/ Notepad</span>
+    <span class="badge">Game data: Steam + SteamSpy</span>
+    <span>Photos: RDNE Stock project (Pexels), A Chosen Soul (Unsplash)</span>
+    <span class="star">★</span>
+  </footer>
+</main>
+
+<nav class="mtabs" id="mtabs">
+  <button type="button" class="on" data-tab="wall">🎮 Wall</button>
+  <button type="button" data-tab="chat">💬 Chat<b id="unread" hidden>0</b></button>
+</nav>
+
+<div id="layer"></div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

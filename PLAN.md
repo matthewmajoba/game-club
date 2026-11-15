@@ -7,10 +7,26 @@ Hannah, Junior, Katie, Sarah, Anthony, Giselle, Michael, Kat, Kalon, Matt (admin
 
 ## Stack
 - **Database / backend:** Supabase (free tier). Realtime for chat, presence, and the wall.
+  - Project: `game-club`, ref `krcnrsuybiuknxbwsjkp`, region us-east-1, free org
+    (created 2026-11-14 via CLI; this folder is linked with `supabase link`).
+  - Keys + DB password live only in `.env.local` (gitignored). Anon key is safe for the browser;
+    service-role key and DB password are server-only.
   - Note: free projects pause after ~1 week of no activity; restore with one click.
 - **Hosting:** Vercel (later). Repo: github.com/matthewmajoba/game-club (public, so no secrets in it).
-- **Game data:** RAWG API (free, non-commercial, requires attribution). Key is kept server-side
-  in a Supabase Edge Function proxy so it isn't exposed in the browser.
+- **Game data:** Steam store (no account or key). Search via `store.steampowered.com/api/storesearch`
+  through a Supabase Edge Function (Steam doesn't allow direct browser calls). Box art from
+  `shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900.jpg`.
+  (RAWG was the first choice, but its sign-up was broken.)
+  - Steam has no playtime data, and users can't be trusted to type hours → **switching to IGDB**.
+- **Game data (final): Steam + SteamSpy, no accounts or keys.** (IGDB needed a Twitch account,
+  and RAWG's sign-up form never submits.)
+  - Search + box art: Steam store (above).
+  - Hours: SteamSpy `https://steamspy.com/api.php?request=appdetails&appid={id}` → `median_forever`
+    (minutes). Median tracks real game length well (Edith Finch 2.4h, Inside 3.6h, Portal 2.9h,
+    Obra Dinn 6.6h); the average is skewed by idlers (Inside avg 18h). Rate limit ~1 req/s → cache it.
+  - Looked up by the Supabase Edge Function and saved with the suggestion; users can't fake hours.
+  - Rules use the median: ≤8h OK, 8–10h "ok but just this once cause I love you!", >10h blocked.
+  - Not on Steam / no data: goes to "awaiting Matt" until Matt approves. Matt can also pull any game.
 
 ## Login (no signup)
 - Pick your name → "If you're really {name}, tell me something only I would know…" (playful prompt).
@@ -86,6 +102,16 @@ Hannah, Junior, Katie, Sarah, Anthony, Giselle, Michael, Kat, Kalon, Matt (admin
   pick font (10 edgy fonts) → preview. Names show in each member's color + font everywhere.
   - Fonts: Creepster, Metal Mania, Rock Salt, Permanent Marker, Press Start 2P, Black Ops One,
     Rubik Glitch, UnifrakturMaguntia, Sedgwick Ave Display, Monoton.
+
+## Build status (2026-11-14)
+- **Done:** database (`supabase/migrations/`), Steam/SteamSpy function (`supabase/functions/games/`),
+  site (`index.html`, `css/`, `js/`), member codes (`scripts/set_codes.py` → `member-codes.txt`, gitignored).
+- Tested end to end with a temporary "Tester" member (deleted afterward): 23 API rule checks pass;
+  sign-in, add game, voting, notes, back-out + sass, log, chat counter and phone layout checked in a browser.
+- **Not done yet:** hosting on Vercel (needs a Vercel account via "Continue with GitHub").
+- Known gap: Steam search can show adult-only games in results; nothing filters them yet.
+- Re-deploy after changes: `npx supabase db push` (new migration file) and
+  `npx supabase functions deploy games --no-verify-jwt --use-api`.
 
 ## Open decisions
 - [ ] Screen names (AIM-style handles) or just real names in custom fonts?

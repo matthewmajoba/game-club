@@ -57,49 +57,55 @@ body{background:#0d0820 url(img/neon-tile.jpg) 0 0/900px auto repeat;color:var(-
 .budget{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;justify-content:space-between;margin:0 10px;padding:7px 12px;background:#000;border-inline:6px solid #1a1a1a;font-size:12px}
 .budget .tok{font-size:18px;letter-spacing:2px}
 .budget small{color:var(--muted)}
-.cabinet{margin:0 0 4px;border:12px solid #151515;border-top-width:8px;border-radius:2px;box-shadow:inset 0 0 0 2px #8e96a6,0 10px 20px rgba(0,0,0,.6);background:#151515;position:relative}
-.glass{position:relative;padding:22px 10px 6px;background:radial-gradient(90% 40% at 50% 0,rgba(220,245,255,.22),transparent 70%),linear-gradient(#262b3a,#12141c 70%);overflow:hidden}
-.glass::before{content:"";position:absolute;left:8%;right:8%;top:5px;height:5px;border-radius:3px;background:#f4fdff;box-shadow:0 0 8px #e6fbff,0 0 22px #b8ecff,0 0 40px rgba(160,220,255,.6)}
-.glass::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:5;background:linear-gradient(112deg,transparent 18%,rgba(255,255,255,.09) 19%,rgba(255,255,255,.03) 27%,transparent 28%,transparent 58%,rgba(255,255,255,.07) 59% 62%,transparent 63%,transparent 66%,rgba(255,255,255,.04) 67% 68%,transparent 69%)}
-.row{margin-bottom:14px}
-.cat{display:inline-block;margin:0 0 12px 4px;padding:3px 12px 3px 8px;font:italic 900 12px/1.1 "Arial Black",Arial,sans-serif;color:#fff;text-transform:uppercase;letter-spacing:.02em;background:linear-gradient(var(--cc),color-mix(in srgb,var(--cc) 65%,#000));border:1px solid rgba(255,255,255,.5);box-shadow:2px 2px 0 #000;clip-path:polygon(0 0,100% 0,94% 100%,0 100%)}
-.glass{container-type:inline-size}
-.items{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));row-gap:22px}
+.cabinet{border:14px solid #121212;border-top-width:10px;border-radius:3px;box-shadow:inset 0 0 0 1px #000,inset 0 0 0 3px #a9b0bd,inset 0 0 0 4px #5b616d,0 14px 26px rgba(0,0,0,.7);background:#121212;position:relative}
+.glass{position:relative;padding:30px 8px 8px;overflow:hidden;container-type:inline-size;
+  background:
+   radial-gradient(70% 34% at 50% 0,rgba(225,245,255,.30),transparent 75%),
+   repeating-linear-gradient(90deg,rgba(255,255,255,.018) 0 1px,transparent 1px 3px),
+   linear-gradient(#3b404c,#22252e 45%,#14161b);
+  box-shadow:inset 0 0 70px rgba(0,0,0,.85),inset 0 -30px 40px rgba(0,0,0,.6)}
+.glass::before{content:"";position:absolute;left:6%;right:6%;top:7px;height:6px;border-radius:4px;background:linear-gradient(#ffffff,#e9fbff);box-shadow:0 0 6px #fff,0 0 18px #c8f0ff,0 0 44px rgba(160,220,255,.7);z-index:4}
+.glass::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:6;background:
+   linear-gradient(108deg,transparent 14%,rgba(255,255,255,.07) 15%,rgba(255,255,255,.02) 24%,transparent 25%),
+   linear-gradient(108deg,transparent 57%,rgba(255,255,255,.05) 58% 61%,transparent 62%),
+   linear-gradient(transparent 85%,rgba(255,255,255,.03))}
+.items{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));row-gap:26px}
 @container (max-width:520px){.items{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .cell{display:flex;flex-direction:column;align-items:center;min-width:0;position:relative}
-/* 2000s keep case */
-.case{width:calc(100% - 22px);max-width:104px;aspect-ratio:5/7;background:#0b0b0b;border-radius:2px 4px 4px 2px;padding:3px 3px 3px 9px;position:relative;box-shadow:0 6px 8px rgba(0,0,0,.6)}
-.case::before{content:"";position:absolute;left:2px;top:4px;bottom:4px;width:5px;background:repeating-linear-gradient(#222 0 2px,#3a3a3a 2px 4px)}
-.case::after{content:"";position:absolute;inset:3px 3px 3px 9px;background:linear-gradient(125deg,rgba(255,255,255,.35),rgba(255,255,255,.05) 22%,transparent 40%,transparent 75%,rgba(255,255,255,.12));pointer-events:none}
-.cover{height:100%;display:flex;flex-direction:column;background:linear-gradient(170deg,var(--c1),var(--c2));overflow:hidden;position:relative}
-.band{background:#000;color:#fff;font:italic 700 7px/1 var(--ui);padding:3px 4px;letter-spacing:.08em;border-bottom:1px solid #666}
-.ttl{padding:4px 5px 0;color:#fff;font:900 12px/1 Impact,"Arial Black",sans-serif;text-transform:uppercase;text-shadow:1px 1px 0 #000,0 0 6px rgba(0,0,0,.6);position:relative;z-index:1}
-.cover .art{position:absolute;right:-6px;bottom:6px;font-size:40px}
-.hrs{position:absolute;left:4px;bottom:4px;background:#fff;color:#000;border:1px solid #000;width:20px;text-align:center;font:900 10px/1 Arial,sans-serif;padding:2px 0 1px;z-index:1}
-.hrs small{display:block;font:700 5px/1 Arial,sans-serif;border-top:1px solid #000;padding-top:1px;margin-top:1px}
-.price{position:absolute;right:-4px;bottom:16px;z-index:3;background:#ff7a00;color:#000;font:700 9px/1 "Courier New",monospace;padding:3px 4px;border:1px solid #b35400;transform:rotate(-3deg);white-space:nowrap}
-.sticker{position:absolute;top:-10px;right:-10px;z-index:3;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--st);border:2px solid #fff;box-shadow:1px 2px 0 rgba(0,0,0,.5)}
+.case{width:84%;aspect-ratio:135/190;background:#070707;border-radius:3px;padding:4px;position:relative;
+  transform:perspective(700px) rotateX(7deg);transform-origin:50% 100%;
+  box-shadow:0 1px 0 rgba(255,255,255,.18) inset,0 12px 10px -6px rgba(0,0,0,.85);
+  -webkit-box-reflect:below 3px linear-gradient(transparent 84%,rgba(255,255,255,.16))}
+.case img{display:block;width:100%;height:100%;object-fit:cover;border-radius:1px}
+.case::after{content:"";position:absolute;inset:0;border-radius:3px;pointer-events:none;background:
+   linear-gradient(122deg,rgba(255,255,255,.34) 0,rgba(255,255,255,.08) 18%,transparent 34%),
+   linear-gradient(122deg,transparent 70%,rgba(255,255,255,.10) 71% 74%,transparent 75%);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.sticker{position:absolute;top:-9px;right:-9px;z-index:3;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--st) 60%,#fff),var(--st) 60%);border:1px solid rgba(0,0,0,.35);box-shadow:1px 2px 2px rgba(0,0,0,.6)}
 .flip{display:inline-grid;line-height:1}
 .flip b{grid-area:1/1;font-weight:400;animation:fA var(--sp,1.4s) steps(1) infinite}
 .flip b+b{animation-name:fB}
 @keyframes fA{50%{opacity:0}}
 @keyframes fB{0%{opacity:0}50%{opacity:1}}
-.t0{--st:#9fd8ff;font-size:17px}.t1{--st:#bdbdbd;font-size:18px}.t2{--st:#ffe53f;font-size:20px}.t3{--st:#ff8a1c;font-size:22px}.t4{--st:#ff2d55;font-size:26px;--sp:.7s}
-.t4.sticker{border-radius:0;border:0;width:52px;height:52px;top:-16px;right:-16px;box-shadow:none;clip-path:polygon(50% 0,61% 16%,80% 8%,80% 28%,100% 34%,88% 52%,100% 68%,80% 74%,78% 94%,60% 86%,50% 100%,40% 86%,22% 94%,20% 74%,0 68%,12% 52%,0 34%,20% 28%,20% 8%,39% 16%);animation:shake .35s steps(2) infinite}
+.t0{--st:#9fd8ff;font-size:17px}.t1{--st:#bdbdbd;font-size:18px}.t2{--st:#ffe53f;font-size:20px}.t3{--st:#ff8a1c;font-size:21px}.t4{--st:#ff2d55;font-size:25px;--sp:.7s}
+.t4.sticker{width:46px;height:46px;top:-14px;right:-14px;animation:shake .35s steps(2) infinite}
 @keyframes shake{50%{transform:rotate(8deg) scale(1.06)}}
-.mine{position:absolute;top:8px;left:0;z-index:4;background:#d6001c;color:#fff;font:900 8px/1.1 Arial,sans-serif;padding:3px 4px;transform:rotate(-10deg);border:1px solid #fff;text-transform:uppercase;text-align:center}
-.mine.one{background:#ffe53f;color:#000;border-color:#000}
-/* glass shelf */
-.edge{align-self:stretch;height:9px;margin-top:6px;background:linear-gradient(rgba(200,255,245,.55),rgba(90,170,160,.35));border-top:1px solid rgba(255,255,255,.85);box-shadow:0 5px 8px rgba(0,0,0,.55)}
-/* staff-pick shelf talker clipped to the shelf */
-.talker{position:relative;margin-top:3px;width:calc(100% - 18px);max-width:108px;background:#fdfdf8;color:#111;border:1px solid #9a9a9a;box-shadow:0 2px 0 rgba(0,0,0,.45);transform:rotate(var(--r,0deg));transform-origin:50% 0;text-align:center;padding-bottom:5px;z-index:2}
-.talker::before{content:"";position:absolute;top:-6px;left:50%;width:22px;height:9px;margin-left:-11px;background:linear-gradient(#e5e5e5,#9a9a9a);border:1px solid #666;border-radius:2px}
+.mine{position:absolute;left:-6px;bottom:14%;z-index:4;background:#d6001c;color:#fff;font:900 8px/1.1 Arial,sans-serif;padding:3px 5px;transform:rotate(-8deg);box-shadow:1px 1px 2px rgba(0,0,0,.6);text-transform:uppercase;text-align:center}
+.mine.one{background:#ffe53f;color:#000}
+.edge{align-self:stretch;height:11px;margin-top:2px;position:relative;z-index:2;
+  background:linear-gradient(rgba(235,255,250,.55) 0 2px,rgba(150,215,200,.30) 2px 4px,rgba(70,140,125,.55) 4px,rgba(30,70,62,.75));
+  box-shadow:0 1px 0 rgba(255,255,255,.35) inset,0 7px 10px rgba(0,0,0,.65)}
+.talker{position:relative;margin-top:3px;width:88%;background:#fdfdf8;color:#111;border:1px solid #9a9a9a;box-shadow:0 2px 2px rgba(0,0,0,.55);transform:rotate(var(--r,0deg));transform-origin:50% 0;text-align:center;z-index:3}
+.talker::before{content:"";position:absolute;top:-6px;left:50%;width:22px;height:9px;margin-left:-11px;background:linear-gradient(#f2f2f2,#9a9a9a);border:1px solid #666;border-radius:2px}
 .talker .hd{background:#d6001c;color:#fff;font:900 8px/1 Arial,sans-serif;letter-spacing:.12em;padding:4px 0 3px}
-.talker .who{display:inline-block;margin-top:5px;padding:0 4px;font:400 19px/1.05 var(--sharpie);color:#111;background:linear-gradient(transparent 52%,color-mix(in srgb,var(--mc) 75%,transparent) 52% 90%,transparent 90%)}
-.talker .say{display:block;font:14px/1 var(--hand);color:#1c3faa;margin-top:1px}
-.empty .case{background:transparent;border:2px dashed #6c7398;box-shadow:none;display:grid;place-items:center;padding:6px;color:#b8bde0;font:15px/1.1 var(--hand);text-align:center}
-.empty .case::before,.empty .case::after{display:none}
-.base{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;background:linear-gradient(#1f1f1f,#0c0c0c);border-top:2px solid #8e96a6}
+.talker .who{display:inline-block;margin-top:5px;padding:0 4px;font:400 18px/1.05 var(--sharpie);color:#111;background:linear-gradient(transparent 52%,color-mix(in srgb,var(--mc) 75%,transparent) 52% 90%,transparent 90%)}
+.talker .say{display:block;font:14px/1 var(--hand);color:#1c3faa;margin:1px 4px 4px}
+.talker .bc{display:flex;justify-content:space-between;align-items:center;gap:4px;border-top:1px solid #ccc;padding:3px 5px;font:700 9px/1 Arial,sans-serif;color:#111;flex-wrap:wrap}
+.talker .bc i{flex:none;width:30px;height:10px;background:repeating-linear-gradient(90deg,#111 0 1px,transparent 1px 3px,#111 3px 5px,transparent 5px 6px,#111 6px 7px,transparent 7px 9px)}
+.empty .case{background:rgba(255,255,255,.03);border:1px dashed rgba(200,210,240,.35);box-shadow:none;transform:none;-webkit-box-reflect:unset;display:grid;place-items:center;padding:6px;color:#aab0d0;font:700 9px/1.2 Arial,sans-serif;text-align:center;text-transform:uppercase;letter-spacing:.06em}
+.empty .case::after{display:none}
+.empty.you .case{color:#ffe53f;border-color:#ffe53f;font:16px/1.1 var(--hand);text-transform:none;letter-spacing:0}
+.base{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;background:linear-gradient(#202020,#0b0b0b);border-top:2px solid #a9b0bd}
 .lock{width:16px;height:16px;border-radius:50%;background:radial-gradient(#f0f0f0,#888 60%,#444);display:grid;place-items:center}
 .lock::after{content:"";width:2px;height:7px;background:#222}
 .assoc{background:#ffe53f;color:#000;font:900 9px/1.1 Arial,sans-serif;padding:3px 6px;text-transform:uppercase}
@@ -205,7 +211,7 @@ body{background:#0d0820 url(img/neon-tile.jpg) 0 0/900px auto repeat;color:var(-
 </style>
 
 <main class="page">
-  <div class="note"><b>Mockup v2.2.</b> Neon squiggle photo tiled as the background, real checkered-fabric photo for the borders, chat room only. The realistic wall with real box art comes next, once the RAWG key is set up.</div>
+  <div class="note"><b>Mockup v2.3.</b> Real box art (from Steam, no account needed) in a lit glass store case. Hours shown are rough examples. Neon photo background, checkered-fabric borders, chat room only.</div>
 
   <header class="panel hdr">
     <div class="logo">GAME CLUB</div>
@@ -227,7 +233,7 @@ body{background:#0d0820 url(img/neon-tile.jpg) 0 0/900px auto repeat;color:var(-
         <div class="base"><span class="assoc">Please ask a club member for assistance</span><span class="lock" aria-hidden="true"></span></div>
       </div>
       <div class="bin-row">
-        <div class="bin"><span class="lbl">RETURNS 'N SHAME</span><div class="scrap" style="--r:-5deg">Kalon: Space Novel 3<br>(52 hrs lol)</div><div class="scrap" style="--r:4deg">Kat: Moon Moles<br>(changed my mind)</div></div>
+        <div class="bin"><span class="lbl">RETURNS 'N SHAME</span><div class="scrap" style="--r:-5deg">Kalon: Elden Ring<br>(100+ hrs lol)</div><div class="scrap" style="--r:4deg">Kat: Stardew Valley<br>(changed my mind)</div></div>
         <div class="shame"><button type="button">Kalon's shame: 1 😤</button><button type="button">Kat's shame: 1 😤</button><small>tap a shame counter for sass</small></div>
       </div>
       <div class="legend" id="legend"></div>
@@ -240,14 +246,14 @@ body{background:#0d0820 url(img/neon-tile.jpg) 0 0/900px auto repeat;color:var(-
         <div class="here glit" id="here"></div>
         <div class="chatlog glit" id="log"></div>
         <div class="fmt"><span>A▲</span><span>A▼</span><span>B</span><span style="font-style:italic">I</span><span style="text-decoration:underline">U</span><span>🎨</span><span>😀</span><span>🔗</span></div>
-        <div class="send"><div class="in">ok so the thing about haunted mall is that the escalator level genuinely made me scream out loud in my car and i will not be taking questions at this time because...<span class="cnt">47 left</span></div><span class="go">Send</span></div>
+        <div class="send"><div class="in">ok so the thing about inside is that the ending genuinely made me scream out loud in my car and i will not be taking questions at this time because...<span class="cnt">47 left</span></div><span class="go">Send</span></div>
       </div>
     </aside>
   </div>
 
   <div class="mtabs"><span class="on">🎮 Wall</span><span>💬 Messenger<b>3</b></span></div>
 
-  <footer class="foot"><span class="star">★</span><span class="badge">Best viewed in 1024x768</span><span class="badge">Made w/ Notepad</span><span class="badge">Game data: RAWG</span><span>Photos: RDNE Stock project (Pexels), A Chosen Soul (Unsplash)</span><span>Last updated: 11/14/2026</span><span class="star">★</span></footer>
+  <footer class="foot"><span class="star">★</span><span class="badge">Best viewed in 1024x768</span><span class="badge">Made w/ Notepad</span><span class="badge">Game data: Steam</span><span>Photos: RDNE Stock project (Pexels), A Chosen Soul (Unsplash)</span><span>Last updated: 11/14/2026</span><span class="star">★</span></footer>
 
   <h2 class="sect-h">First sign-in (what Katie sees)</h2>
   <section class="panel lime setup" style="--mc:#ff3fa4;--mf:Creepster">
@@ -290,38 +296,28 @@ const tiers=[
  {k:"ON FIRE",a:"🔥",b:"🥵",rule:"over 30%"}
 ];
 const games=[
- {t:"Tiny Tax Office",by:"Anthony",c1:"#2c6e2f",c2:"#0b2a0c",art:"🧾",h:3,heat:4,say:"trust me"},
- {t:"Moon Moles",by:"Katie",c1:"#3b1d8f",c2:"#0b0b2e",art:"🌙",h:4,heat:2,say:"cutest game ever"},
- {t:"Sock Puppet Heist",by:"Michael",c1:"#5b2a86",c2:"#1b0b2e",art:"🧦",h:5,heat:7,say:"heist!!!"},
- {t:"Haunted Mall",by:"Giselle",c1:"#0f6b57",c2:"#062420",art:"👻",h:7,heat:9,mine:2,say:"so scary omg"},
- {t:"Pizza Knight II",by:"Junior",c1:"#ff6a00",c2:"#b3001b",art:"🍕",h:6,heat:5,mine:1,say:"better than 1"},
- {t:"Gravy Golf",by:"Hannah",c1:"#8a5a2b",c2:"#2b1608",art:"⛳",h:9,heat:0,say:"just this once ❤"}
-];
-const rows=[
- {name:"Under 5 hrs",cc:"#0a5fd8",f:g=>g.h<5},
- {name:"5–8 hrs",cc:"#1f9d2f",f:g=>g.h>=5&&g.h<=8,empty:true},
- {name:"8–10 hrs · just this once ❤",cc:"#c2189b",f:g=>g.h>8}
+ {t:"What Remains of Edith Finch",img:"edithfinch",by:"Giselle",h:2.5,heat:9,mine:2,say:"so sad omg"},
+ {t:"Inside",img:"inside",by:"Michael",h:3.5,heat:7,say:"trust me"},
+ {t:"Portal",img:"portal",by:"Junior",h:3,heat:5,mine:1,say:"the cake!!"},
+ {t:"Untitled Goose Game",img:"goose",by:"Anthony",h:3.5,heat:4,say:"honk honk"},
+ {t:"A Short Hike",img:"shorthike",by:"Katie",h:1.5,heat:2,say:"cutest game ever"},
+ {t:"Return of the Obra Dinn",img:"obradinn",by:"Hannah",h:9,heat:0,say:"just this once ❤"}
 ];
 const total=games.reduce((a,g)=>a+g.heat,0);
 const tierOf=h=>{if(!h)return 0;const p=h/total;return p<.1?1:p<.2?2:p<.3?3:4};
 const flip=t=>`<span class="flip"><b>${t.a}</b><b>${t.b}</b></span>`;
-const tilts=["-2deg","1.5deg","-1deg","2.5deg","-2.5deg","1deg"];
+const tilts=["-2deg","1.5deg","-1deg","2deg","-1.5deg","1deg"];
 let k=0;
 const cell=g=>{
   const ti=tierOf(g.heat),t=tiers[ti],pct=Math.round(g.heat/total*100);
   return `<div class="cell" style="--mc:${M[g.by].c}">
-    <div class="case" style="--c1:${g.c1};--c2:${g.c2}">
-      <div class="cover"><div class="band">GAME CLUB</div><div class="ttl">${g.t}</div><span class="art">${g.art}</span><span class="hrs">${g.h}<small>HRS</small></span></div>
-      <span class="sticker t${ti}">${flip(t)}</span>
-      <span class="price">🔥${g.heat} · ${pct}%</span>
-      ${g.mine?`<span class="mine ${g.mine===1?"one":""}">${g.mine===2?"your big<br>vote ×2":"your +1"}</span>`:""}
-    </div>
+    <div class="case"><img src="img/covers/${g.img}.jpg" alt="${g.t} box art"><span class="sticker t${ti}">${flip(t)}</span>${g.mine?`<span class="mine ${g.mine===1?"one":""}">${g.mine===2?"your big<br>vote ×2":"your +1"}</span>`:""}</div>
     <div class="edge"></div>
-    <div class="talker" style="--r:${tilts[k++%tilts.length]}"><div class="hd">★ CLUB PICK ★</div><span class="who">${g.by}</span><span class="say">${g.say}</span></div>
+    <div class="talker" style="--r:${tilts[k++%tilts.length]}"><div class="hd">★ CLUB PICK ★</div><span class="who">${g.by}</span><span class="say">${g.say}</span><div class="bc"><i></i><span>${g.h} HRS</span><span>🔥${g.heat} · ${pct}%</span></div></div>
   </div>`;
 };
 // one slot per member: 10 slots, two shelves of 5
-const emptyCell=n=>`<div class="cell empty"><div class="case">${n==="Matt"?"+ Matt, throw yours up!":`${n}'s spot`}</div><div class="edge"></div></div>`;
+const emptyCell=n=>`<div class="cell empty${n==="Matt"?" you":""}"><div class="case">${n==="Matt"?"+ Matt, throw yours up!":`${n}'s<br>spot`}</div><div class="edge"></div></div>`;
 document.getElementById("glass").innerHTML=`<div class="items">${games.map(cell).join("")}${["Matt","Sarah","Kalon","Kat"].map(emptyCell).join("")}</div>`;
 document.getElementById("legend").innerHTML=tiers.map((t,i)=>`<div><span class="t${i}" style="font-size:18px">${flip(t)}</span><b>${t.k}</b><span style="color:#a3a8c8">${t.rule}</span></div>`).join("");
 
@@ -332,9 +328,9 @@ document.getElementById("here").innerHTML=`<span class="lbl">here now (${on.leng
 // Chat room
 const chat=[
  ["4:02 PM",null,"🚪 Hannah has entered the room."],
- ["4:03 PM","Katie","haunted mall is like 7 hrs we HAVE to"],
- ["4:03 PM","Junior","pizza knight 2 > pizza knight 1 dont @ me"],
- ["4:05 PM","Hannah","gravy golf was 9 hrs and the site said it loves me so"],
+ ["4:03 PM","Katie","edith finch is like 2 hrs we HAVE to"],
+ ["4:03 PM","Junior","portal is a classic dont @ me"],
+ ["4:05 PM","Hannah","obra dinn is 9 hrs and the site said it loves me so"],
  ["4:06 PM","Matt","round 1 closes friday!! spend ur 🔥"],
  ["4:07 PM",null,"🚪 Kalon has left the room."],
  ["4:08 PM","Katie","kalon backed out AGAIN 💀"]
