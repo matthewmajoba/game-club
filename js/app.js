@@ -528,12 +528,14 @@ async function refreshGameDialog() {
   if (voters.length) parts.push(h("div", { class: "voters" }, h("b", null, "Who's hot for it:"), voters.map((v) => h("span", null, nameEl(member(v.member_id)), " ", "🔥".repeat(v.points)))));
 
   if (S.me && g.status === "active") {
-    const opts = [[0, "No 🔥"], [1, "🔥"], [2, "🔥🔥 big vote"]];
+    // tap to put heat on, tap the lit one again to take it back off
+    const opts = [[1, "🔥"], [2, "🔥🔥 big vote"]];
     parts.push(h("div", null, h("h3", null, `Your vote (${3 - myUsed()} 🔥 left)`),
       h("div", { class: "votebar" }, opts.map(([p, label]) => h("button", {
-        type: "button", class: "btn" + (mineNow === p ? " on" : ""), disabled: usedElsewhere + p > 3,
+        type: "button", class: "btn" + (mineNow === p ? " on" : ""), "aria-pressed": String(mineNow === p),
+        disabled: mineNow !== p && usedElsewhere + p > 3,
         onclick: async () => {
-          try { await rpc("set_vote", { p_token: S.token, p_game_id: id, p_points: p }); await refreshGames(); }
+          try { await rpc("set_vote", { p_token: S.token, p_game_id: id, p_points: mineNow === p ? 0 : p }); await refreshGames(); }
           catch (e) { toast(errMsg(e), true); }
         },
       }, label)))));
