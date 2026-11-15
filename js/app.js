@@ -293,7 +293,7 @@ function renderWall() {
       : [h("span", { class: "none" }, "nobody has chickened out... yet 👀")]));
   const shamed = S.members.filter((m) => m.shame > 0).sort((a, b) => b.shame - a.shame);
   $("shame").replaceChildren(...shamed.map((m) => h("button", { type: "button", onclick: sass }, `${m.name}'s shame: ${m.shame} 😤`)),
-    shamed.length ? h("small", null, "tap a shame counter for sass") : null);
+    ...(shamed.length ? [h("small", null, "tap a shame counter for sass")] : []));
 
 }
 
