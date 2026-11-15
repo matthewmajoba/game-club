@@ -1,0 +1,10 @@
+# Never upload secrets
+.env
+.env.*
+member-codes.txt
+# Not part of the website
+supabase
+scripts
+mockups
+PLAN.md
+README.md
