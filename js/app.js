@@ -285,14 +285,15 @@ function renderWall() {
   }
   $("shelf").replaceChildren(...cells);
 
-  // returns 'n shame bin
-  const out = S.games.filter((g) => g.status === "withdrawn");
-  $("bin").replaceChildren(h("span", { class: "lbl" }, "RETURNS OF SHAME"),
-    ...(out.length ? out.map((g, i) => h("div", { class: "scrap", vars: { "--r": i % 2 ? "4deg" : "-5deg" } }, `${member(g.member_id)?.name}: ${g.title}`))
-      : [h("span", { class: "none" }, "nobody has chickened out... yet 👀")]));
-  const shamed = S.members.filter((m) => m.shame > 0).sort((a, b) => b.shame - a.shame);
-  $("shame").replaceChildren(...shamed.map((m) => h("button", { type: "button", onclick: sass }, `${m.name}'s shame: ${m.shame} 😤`)),
-    ...(shamed.length ? [h("small", null, "tap a shame counter for sass")] : []));
+  // return bucket: only this shelf's returns (it empties when a winner is crowned),
+  // newest first, capped so it never takes over the page; the rest live in the Log
+  const BUCKET_MAX = 6;
+  const out = S.games.filter((g) => g.status === "withdrawn").reverse();
+  const extra = out.length - BUCKET_MAX;
+  $("bin").replaceChildren(h("span", { class: "lbl" }, "RETURN BUCKET"),
+    ...(out.length ? out.slice(0, BUCKET_MAX).map((g, i) => h("div", { class: "scrap", vars: { "--r": i % 2 ? "4deg" : "-5deg" } }, `${member(g.member_id)?.name}: ${g.title}`))
+      : [h("span", { class: "none" }, "nobody has chickened out... yet 👀")]),
+    ...(extra > 0 ? [h("button", { type: "button", class: "more", onclick: openLog }, `+${extra} more in the Log`)] : []));
 
 }
 

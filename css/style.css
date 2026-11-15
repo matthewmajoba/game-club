@@ -106,16 +106,14 @@ button{font:inherit;color:inherit}
 .lock::after{content:"";width:2px;height:7px;background:#222}
 .assoc{background:#ffe53f;color:#000;font:900 9px/1.1 Arial,sans-serif;padding:3px 6px;text-transform:uppercase}
 
-.bin-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:18px 4px 6px}
-@media (max-width:520px){.bin-row{grid-template-columns:minmax(0,1fr)}}
+.bin-row{padding:18px 4px 6px}
 .bin{position:relative;min-height:70px;padding:24px 12px 14px;background:repeating-linear-gradient(45deg,transparent 0 9px,#353946 9px 11px),repeating-linear-gradient(-45deg,transparent 0 9px,#353946 9px 11px),#101016;border:3px solid #6a7080;border-top-width:6px;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
 .bin .lbl{position:absolute;top:-14px;left:10px;background:#ffe53f;color:#000;font:900 12px "Arial Black",Arial,sans-serif;padding:3px 8px;transform:rotate(-2deg);border:1px solid #000}
 .bin .none{color:#ffe53f;font:19px/1.2 var(--hand);background:#000;border:2px solid #ffe53f;padding:4px 12px;transform:rotate(-1.5deg);box-shadow:2px 2px 0 #000}
 .scrap{position:relative;padding:8px 26px 8px 18px;color:#0b1f66;font:19px/1.2 var(--hand);font-weight:700;transform:rotate(var(--r,-4deg));box-shadow:1px 2px 0 rgba(0,0,0,.5);background:linear-gradient(100deg,transparent 46%,rgba(0,0,0,.13) 49%,rgba(255,255,255,.4) 51%,transparent 54%),linear-gradient(90deg,transparent 9px,#f0a0a0 9px 10px,transparent 10px),repeating-linear-gradient(#fbfbf3 0 15px,#a9c4ec 15px 16px);clip-path:polygon(0 3%,8% 0,20% 4%,33% 1%,47% 4%,60% 0,74% 3%,88% 0,100% 4%,98% 100%,0 98%);max-width:100%;overflow-wrap:anywhere}
 .scrap::after{content:"✗";position:absolute;right:4px;top:-4px;font:400 30px/1 var(--sharpie);color:#d6001c;opacity:.85}
-.shame{display:grid;gap:6px;justify-items:start}
-.shame button{background:#2a0a14;border:2px outset #7a2040;color:#ffb3c8;font:700 12px var(--ui);padding:4px 10px;cursor:pointer}
-.shame small{color:var(--muted)}
+.bin .more{background:#000;border:2px solid #ffe53f;color:#ffe53f;font:19px/1.2 var(--hand);padding:4px 12px;cursor:pointer;transform:rotate(1.5deg);box-shadow:2px 2px 0 #000}
+.bin .more:hover{background:#ffe53f;color:#000}
 .legend{display:flex;flex-wrap:wrap;gap:8px;padding:10px 4px 4px;margin-top:8px;border-top:2px dashed #2a2a48}
 .legend div{display:flex;align-items:center;gap:6px;background:#17172c;border:1px solid #2e2e50;padding:4px 8px;font-size:11px}
 .legend span.r{color:var(--muted)}
