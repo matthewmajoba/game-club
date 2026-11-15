@@ -252,14 +252,14 @@ textarea{resize:vertical;min-height:44px}
 .pep-quote{margin:0;font:400 clamp(20px,2.6vw,28px)/1.22 var(--sharpie);color:#fff;text-shadow:3px 3px 0 #6d0f45,0 0 20px rgba(255,31,142,.3);text-wrap:balance;overflow-wrap:anywhere}
 .pep-quote::before{content:"\201C";color:#ffe53f;margin-right:.08em}
 .pep-quote::after{content:"\201D";color:#ffe53f;margin-left:.04em}
-.smash{position:relative;display:flex;align-items:center;gap:16px}
+.smash{--charge:0;position:relative;display:flex;align-items:center;gap:16px}
 .smash-stage{position:relative;width:110px;height:104px;flex:none}
 .smash-fx{position:absolute;left:-145px;top:-148px;width:400px;height:400px;pointer-events:none}
 .smash-fx.back{z-index:1}
 .smash-fx.front{z-index:3}
 
 /* the like button: a floating crystal ball (its insides are a WebGL shader in js/pep.js) */
-.sb-wrap{--charge:0;position:absolute;left:12px;top:9px;width:86px;height:86px;z-index:2;animation:levitate 4.2s ease-in-out infinite}
+.sb-wrap{position:absolute;left:12px;top:9px;width:86px;height:86px;z-index:2;animation:levitate 4.2s ease-in-out infinite}
 .sb{display:block;position:relative;width:100%;height:100%;margin:0;padding:0;border:0;background:none;border-radius:50%;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .sb:focus-visible{outline:3px solid var(--lime);outline-offset:5px}
 .sb .orb{position:absolute;inset:0;border-radius:50%;overflow:hidden;
@@ -280,11 +280,33 @@ textarea{resize:vertical;min-height:44px}
 @keyframes levitate{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 @keyframes pool{0%,100%{transform:scaleX(1);opacity:.9}50%{transform:scaleX(.82);opacity:.55}}
 
-/* like counter: an old-school hit counter */
-.hits{display:grid;justify-items:center;gap:3px}
-.hits .cells{display:flex;gap:1px;padding:3px;background:#1c1c1c;border:2px outset #777;box-shadow:0 3px 8px rgba(0,0,0,.6)}
-.hits .cells b{display:block;width:15px;height:23px;overflow:hidden;font:700 16px/23px Verdana,Geneva,sans-serif;text-align:center;color:#fff;background:linear-gradient(#3b3b3b,#0c0c0c 49%,#000 51%,#262626);border:1px solid #555;box-shadow:inset 0 1px 0 rgba(255,255,255,.18)}
-.hits small{font:700 10px var(--ui);letter-spacing:.14em;text-transform:uppercase;color:#ff8ad8}
+/* like counter: a magic hit counter (the tiles are a WebGL shader in js/pep.js) */
+@property --mca{syntax:"<angle>";inherits:false;initial-value:0deg}
+.hits{display:grid;justify-items:center;gap:6px;position:relative}
+.hits .mc{position:relative;display:block;padding:4px;border-radius:10px;border:1.5px solid transparent;
+  background:linear-gradient(#10072a,#05020e) padding-box,conic-gradient(from var(--mca),#ff8ad8,#b78cff,#7af0ff,#ffe58a,#ff8ad8) border-box;
+  box-shadow:0 0 calc(10px + var(--charge)*20px) calc(1px + var(--charge)*5px) rgba(190,120,255,calc(.45 + var(--charge)*.4)),
+             0 0 calc(26px + var(--charge)*30px) rgba(255,80,200,calc(.16 + var(--charge)*.25)),
+             inset 0 0 12px rgba(150,80,255,.35);
+  animation:mcspin 6s linear infinite}
+@keyframes mcspin{to{--mca:360deg}}
+.hits .mc-gl{display:none;width:120px;height:30px}
+.hits .mc.gl .mc-gl{display:block}
+.hits .mc.gl .cells{display:none}
+/* plain digits until the shader is ready (or without WebGL), still a little magic */
+.hits .cells{display:flex;gap:2px}
+.hits .cells b{display:block;width:18px;height:30px;border-radius:5px;font:400 17px/30px Bungee,Verdana,sans-serif;text-align:center;color:#fff;
+  background:radial-gradient(120% 90% at 50% 20%,#3a1670,#12062a 70%);box-shadow:inset 0 0 0 1px rgba(200,150,255,.45);text-shadow:0 0 6px #d58cff,0 0 2px #fff}
+/* twinkling stars on the frame */
+.hits .mc::before,.hits .mc::after{content:"\2726";position:absolute;font-size:11px;line-height:1;color:#fff;text-shadow:0 0 6px #ff8ad8,0 0 12px #b78cff;pointer-events:none;animation:twinkle 2.8s ease-in-out infinite}
+.hits .mc::before{top:-7px;left:-6px}
+.hits .mc::after{bottom:-7px;right:-6px;animation-delay:1.4s}
+@keyframes twinkle{0%,100%{opacity:.15;transform:scale(.55) rotate(0)}50%{opacity:1;transform:scale(1.15) rotate(45deg)}}
+.hits small{font:400 11px/1 Bungee,var(--ui);letter-spacing:.24em;padding-left:.24em;text-transform:uppercase;
+  background:linear-gradient(90deg,#ff8ad8,#b78cff,#7af0ff,#ffe58a,#ff8ad8,#b78cff) 0 0/200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 4px rgba(200,120,255,calc(.6 + var(--charge)*.4)));animation:shimmer 4s linear infinite}
+@keyframes shimmer{to{background-position:-200% 0}}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* Love Notes dialog: saved sayings on notebook paper */
 .lnotes{display:grid;gap:12px;max-height:min(60vh,520px);overflow:auto;padding:4px 4px 8px}

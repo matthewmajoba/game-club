@@ -37,11 +37,8 @@ const dayNum = (d) => { const [y, m, dd] = d.split("-").map(Number); return Math
 // uFlow: accumulated swirl. uCharge: 0..1 magic from tapping. uPulse: seconds since the last tap.
 // uHeart / uLike: how much of each vision is showing (0..1). uTex: LIKE 👍 (R sharp, G glow, B detail).
 const ORB_VERT = "attribute vec2 p;varying vec2 vUv;void main(){vUv=p*0.5+0.5;gl_Position=vec4(p,0.0,1.0);}";
-const ORB_FRAG = `precision highp float;
-varying vec2 vUv;
-uniform vec2 uRes;
-uniform float uTime, uFlow, uCharge, uPulse, uHover, uHeart, uLike;
-uniform sampler2D uTex;
+// shared by the ball and the counter: noise, fog, iridescent palette, glitter
+const NOISE = `
 float h31(vec3 p){ p = fract(p*0.3183099 + 0.1); p *= 17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
 float h21(vec2 p){ p = fract(p*vec2(123.34,456.21)); p += dot(p, p+45.32); return fract(p.x*p.y); }
 float vnoise(vec3 x){
@@ -49,11 +46,7 @@ float vnoise(vec3 x){
   return mix(mix(mix(h31(i),h31(i+vec3(1,0,0)),f.x), mix(h31(i+vec3(0,1,0)),h31(i+vec3(1,1,0)),f.x), f.y),
              mix(mix(h31(i+vec3(0,0,1)),h31(i+vec3(1,0,1)),f.x), mix(h31(i+vec3(0,1,1)),h31(i+vec3(1,1,1)),f.x), f.y), f.z);
 }
-float fbm(vec3 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a*vnoise(p); p = p*2.02 + vec3(1.7,9.2,3.1); a *= 0.5; } return s; }
 float fbm3(vec3 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 3; i++) { s += a*vnoise(p); p = p*2.03 + vec3(4.1,2.7,8.3); a *= 0.5; } return s/0.875; }
-float dot2(vec2 v){ return dot(v,v); }
-float sdHeart(vec2 p){ p.x = abs(p.x); if (p.y+p.x > 1.0) return sqrt(dot2(p-vec2(0.25,0.75))) - 0.35355;
-  return sqrt(min(dot2(p-vec2(0.0,1.0)), dot2(p-0.5*max(p.x+p.y,0.0)))) * sign(p.x-p.y); }
 vec3 pal(float t){ return 0.55 + 0.45*cos(6.28318*(t + vec3(0.0,0.18,0.42))); }
 float glitter(vec2 g, float t, float dens){
   vec2 id = floor(g), f = fract(g) - 0.5;
@@ -65,6 +58,17 @@ float glitter(vec2 g, float t, float dens){
   float rays = smoothstep(0.025,0.0,d.x)*smoothstep(0.28,0.0,d.y) + smoothstep(0.025,0.0,d.y)*smoothstep(0.28,0.0,d.x);
   return step(1.0-dens, r) * tw * (core + rays*0.55);
 }
+`;
+const ORB_FRAG = `precision highp float;
+varying vec2 vUv;
+uniform vec2 uRes;
+uniform float uTime, uFlow, uCharge, uPulse, uHover, uHeart, uLike;
+uniform sampler2D uTex;
+${NOISE}
+float fbm(vec3 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a*vnoise(p); p = p*2.02 + vec3(1.7,9.2,3.1); a *= 0.5; } return s; }
+float dot2(vec2 v){ return dot(v,v); }
+float sdHeart(vec2 p){ p.x = abs(p.x); if (p.y+p.x > 1.0) return sqrt(dot2(p-vec2(0.25,0.75))) - 0.35355;
+  return sqrt(min(dot2(p-vec2(0.0,1.0)), dot2(p-0.5*max(p.x+p.y,0.0)))) * sign(p.x-p.y); }
 void main(){
   vec2 uv = vUv*2.0 - 1.0;
   float r = length(uv);
@@ -164,10 +168,87 @@ function likeTexture(size = 256) {
     const lum = (a[i] * 0.3 + a[i + 1] * 0.59 + a[i + 2] * 0.11) / 255;
     out[i] = a[i + 3]; out[i + 1] = b[i + 3]; out[i + 2] = Math.round(Math.min(1, lum * 1.15) * 255); out[i + 3] = 255;
   }
-  return { size, data: out };
+  return { w: size, h: size, data: out };
 }
 
-function orbGL(cv) {
+// ---------- the magic counter shader ----------
+// Six little glass tiles, each with its own swirl of iridescent fog, glitter and a rainbow rim.
+// Digits come from an atlas (R sharp, G glow); when a digit changes the old one dissolves into
+// the fog and the new one forms out of it (uProg 0 -> 1), and that tile flares as it lands.
+const MC_FRAG = `precision highp float;
+varying vec2 vUv;
+uniform vec2 uRes;
+uniform float uTime, uFlow, uCharge, uPulse;
+uniform float uCur[6], uPrev[6], uProg[6];
+uniform sampler2D uTex;
+${NOISE}
+float sdBox(vec2 p, vec2 b, float r){ vec2 q = abs(p) - b + r; return length(max(q,0.0)) + min(max(q.x,q.y),0.0) - r; }
+vec2 slot(float dg, vec2 g){ return vec2((dg + clamp(g.x,0.0,1.0))/10.0, clamp(g.y,0.0,1.0)); }
+void main(){
+  vec2 px = vUv*uRes;
+  float cw = uRes.x/6.0, gap = uRes.y*0.09;
+  float fi = clamp(floor(px.x/cw), 0.0, 5.0);
+  vec2 lc = vec2(px.x - (fi + 0.5)*cw, px.y - uRes.y*0.5);
+  vec2 hb = vec2(cw*0.5 - gap*0.5, uRes.y*0.5 - 0.5);
+  float sd = sdBox(lc, hb, uRes.y*0.17);
+  float inside = 1.0 - smoothstep(-0.8, 0.8, sd);
+  if (inside <= 0.0) { gl_FragColor = vec4(0.0); return; }
+  float cur = 0.0, prv = 0.0, prog = 1.0;
+  for (int i = 0; i < 6; i++) { if (abs(fi - float(i)) < 0.5) { cur = uCur[i]; prv = uPrev[i]; prog = uProg[i]; } }
+  vec2 c = lc/hb;                                                     // -1..1 inside the tile
+  float T = uFlow;
+  vec3 P = vec3(c*vec2(0.8,1.2) + vec2(fi*2.3, 0.0), T*0.4);
+  vec2 w = vec2(fbm3(P), fbm3(P + vec3(3.1,1.7,5.3)));
+  float d = fbm3(P + vec3(w*1.6, T*0.25));
+  vec3 iri = pal(d*1.4 + w.x*0.8 + fi*0.11 + uTime*0.05);
+  float fog = smoothstep(0.3, 0.85, d);
+  vec3 col = mix(vec3(0.06,0.015,0.14), iri*0.62, fog*0.72);
+  vec2 g = c*0.5 + 0.5 + (w - 0.5)*0.025;                              // digits drift a hair with the fog
+  vec4 gc = texture2D(uTex, slot(cur, g)), gp = texture2D(uTex, slot(prv, g));
+  float dn = fbm3(vec3(c*vec2(1.6,2.4) + w*0.8, uTime*0.3 + fi*3.7));
+  float outV = 1.0 - smoothstep(0.0, 0.55, prog), inV = smoothstep(0.3, 1.0, prog);
+  float to = mix(-0.05,1.05,outV), ti = mix(-0.05,1.05,inV);
+  float oR = 1.0 - smoothstep(to-0.07, to+0.07, dn), nR = 1.0 - smoothstep(ti-0.07, ti+0.07, dn);
+  float shape = max(gc.r*nR, gp.r*oR), glow = max(gc.g*nR, gp.g*oR);
+  float edge = smoothstep(0.09,0.0,abs(dn-ti))*sin(3.14159*inV)*max(gc.r, gc.g*0.5)
+             + smoothstep(0.09,0.0,abs(dn-to))*sin(3.14159*outV)*max(gp.r, gp.g*0.5);
+  float sweep = fract(uTime*0.16)*1.9 - 0.45;                          // pearly sheen sweeping across
+  float sheen = exp(-pow((vUv.x + c.y*0.07 - sweep)*8.0, 2.0));
+  vec3 digit = mix(vec3(1.0,0.96,1.0), pal(vUv.x*0.7 + uTime*0.06 + 0.15), 0.3) + sheen*0.55;
+  col *= 1.0 - 0.5*glow*(1.0 - shape);                                 // dark halo so digits read
+  col = mix(col, digit, shape);
+  col += mix(vec3(0.95,0.45,1.0), iri, 0.4)*glow*(0.45 + uCharge*0.5);
+  col += pal(dn*3.0 + uTime*0.3)*edge*1.6;                             // ember edges as digits change
+  float fresh = 1.0 - prog;
+  col += vec3(1.0,0.8,1.0)*fresh*fresh*0.6*(1.0 - 0.4*length(c));      // the tile that just changed flares
+  col += (vec3(1.0) + iri*0.5)*glitter(c*vec2(2.5,3.5) + vec2(fi*7.0, T*0.3), uTime*1.4, 0.25)*0.9*(1.0 - shape);
+  float rim = smoothstep(-uRes.y*0.09, -0.3, sd);
+  col += pal(vUv.x*1.3 + uTime*0.08)*rim*(0.55 + uCharge*0.5);         // rainbow glass rim
+  col += smoothstep(0.45, 0.95, c.y)*smoothstep(1.0, 0.5, abs(c.x))*0.18;   // gloss on top
+  col *= 1.0 + uCharge*0.2 + exp(-uPulse*5.0)*0.25;
+  gl_FragColor = vec4(clamp(col,0.0,1.0)*inside, inside);
+}`;
+
+// digits 0-9 side by side (80x96 slots): R = sharp, G = soft glow
+function digitAtlas() {
+  const SW = 80, SH = 96, w = SW * 10;
+  const mk = () => { const c = document.createElement("canvas"); c.width = w; c.height = SH; return c; };
+  const paint = (c, blur) => {
+    const g = c.getContext("2d");
+    if (blur) g.filter = "blur(5px)";
+    g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.font = '400 78px Bungee, "Arial Black", Arial, sans-serif';
+    for (let i = 0; i < 10; i++) g.fillText(String(i), i * SW + SW / 2, SH / 2 + 4);
+  };
+  const sharp = mk(), soft = mk(); paint(sharp, false); paint(soft, true);
+  const a = sharp.getContext("2d").getImageData(0, 0, w, SH).data, b = soft.getContext("2d").getImageData(0, 0, w, SH).data;
+  const out = new Uint8Array(w * SH * 4);
+  for (let i = 0; i < a.length; i += 4) { out[i] = a[i + 3]; out[i + 1] = b[i + 3]; out[i + 3] = 255; }
+  return { w, h: SH, data: out };
+}
+
+// one full-screen triangle + one texture; returns a draw(floats, arrays) function or null
+function glQuad(cv, frag, tex, floats, arrays = []) {
   let gl = null;
   try { gl = cv.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false }); } catch { /* no webgl */ }
   if (!gl) return null;
@@ -176,7 +257,7 @@ function orbGL(cv) {
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; }
     return s;
   };
-  const vs = shader(gl.VERTEX_SHADER, ORB_VERT), fs = shader(gl.FRAGMENT_SHADER, ORB_FRAG);
+  const vs = shader(gl.VERTEX_SHADER, ORB_VERT), fs = shader(gl.FRAGMENT_SHADER, frag);
   if (!vs || !fs) return null;
   const pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
   if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return null;
@@ -184,21 +265,22 @@ function orbGL(cv) {
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
   const loc = gl.getAttribLocation(pr, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-  const t = likeTexture();
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, t.size, t.size, 0, gl.RGBA, gl.UNSIGNED_BYTE, t.data);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tex.w, tex.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, tex.data);
   for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
-  const names = ["uTime", "uFlow", "uCharge", "uPulse", "uHover", "uHeart", "uLike"];
-  const U = {}; for (const k of ["uRes", "uTex", ...names]) U[k] = gl.getUniformLocation(pr, k);
+  const U = {}; for (const k of ["uRes", "uTex", ...floats, ...arrays]) U[k] = gl.getUniformLocation(pr, k);
   gl.uniform1i(U.uTex, 0);
   return (o) => {
     gl.viewport(0, 0, cv.width, cv.height);
     gl.uniform2f(U.uRes, cv.width, cv.height);
-    for (const k of names) gl.uniform1f(U[k], o[k]);
+    for (const k of floats) gl.uniform1f(U[k], o[k]);
+    for (const k of arrays) gl.uniform1fv(U[k], o[k]);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };
 }
+const orbGL = (cv) => glQuad(cv, ORB_FRAG, likeTexture(), ["uTime", "uFlow", "uCharge", "uPulse", "uHover", "uHeart", "uLike"]);
+const counterGL = (cv) => glQuad(cv, MC_FRAG, digitAtlas(), ["uTime", "uFlow", "uCharge", "uPulse"], ["uCur", "uPrev", "uProg"]);
 
 export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   const root = document.getElementById("pep");
@@ -213,8 +295,11 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   const fxBack = h("canvas", { class: "smash-fx back", "aria-hidden": "true" });
   const fxFront = h("canvas", { class: "smash-fx front", "aria-hidden": "true" });
   const stageEl = h("div", { class: "smash-stage" }, h("span", { class: "pool", "aria-hidden": "true" }), fxBack, wrap, fxFront);
-  const cells = h("span", { class: "cells" });
-  const counter = h("div", { class: "hits", role: "status", "aria-label": "Likes today" }, cells, h("small", null, "likes"));
+  const cells = h("span", { class: "cells", "aria-hidden": "true" });
+  const mcCv = h("canvas", { class: "mc-gl", "aria-hidden": "true" });
+  const frameEl = h("span", { class: "mc" }, cells, mcCv);
+  const srCount = h("span", { class: "sr" });
+  const counter = h("div", { class: "hits", role: "status" }, frameEl, h("small", { "aria-hidden": "true" }, "likes"), srCount);
   const smash = h("div", { class: "smash" }, stageEl, counter);
   root.replaceChildren(quote, smash);
 
@@ -224,6 +309,15 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   let drawOrb = orbGL(orbCv);
   if (!drawOrb) orbEl.classList.add("nogl"); // plain CSS ball if WebGL isn't available
   orbCv.addEventListener("webglcontextlost", (e) => { e.preventDefault(); drawOrb = null; orbEl.classList.add("nogl"); });
+  // the magic counter (waits for the Bungee font so the digits come out right; plain cells until then)
+  const MC_W = 120, MC_H = 30;
+  mcCv.width = Math.round(MC_W * dpr); mcCv.height = Math.round(MC_H * dpr);
+  const dig = { uCur: new Float32Array(6), uPrev: new Float32Array(6), uProg: new Float32Array(6).fill(1) };
+  let drawMC = null, lastLand = -1e9;
+  Promise.race([document.fonts?.load('400 78px "Bungee"') || Promise.resolve(), new Promise((r) => setTimeout(r, 1500))])
+    .catch(() => {})
+    .then(() => { drawMC = counterGL(mcCv); if (drawMC) frameEl.classList.add("gl"); });
+  mcCv.addEventListener("webglcontextlost", (e) => { e.preventDefault(); drawMC = null; frameEl.classList.remove("gl"); });
 
   // ---------- sounds: a crystal chime that climbs a scale as the magic builds ----------
   let master = null, nbuf = null;
@@ -271,15 +365,41 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
     const a = rnd(0, TAU);
     motes.push({ a, r: RB * rnd(0.9, 1.05), w: SWIRL * rnd(1.2, 2.4), vr: rnd(26, 56), t: 0, life: rnd(0.6, 1.2), s: rnd(2.5, 5), hue: pickHue(), layer: Math.random() < 0.3 ? 0 : 1 });
   }
-  // a spark that flies from the ball to the counter (the digit rolls when it lands)
+  // where things land on the counter, in effect-canvas coordinates (u = 0..1 across the tiles)
+  function counterPt(u) {
+    const fr = fxFront.getBoundingClientRect(), cr = (drawMC ? mcCv : cells).getBoundingClientRect(), k = W / (fr.width || W);
+    return [(cr.left + cr.width * u - fr.left) * k, (cr.top + cr.height / 2 - fr.top) * k];
+  }
+  // a spark that flies from the ball into the ones digit (which changes as it lands)
   function spawnDart(onLand) {
-    const fr = fxFront.getBoundingClientRect(), cr = cells.getBoundingClientRect(), k = W / (fr.width || W);
-    const tx = (cr.left + cr.width * 0.7 - fr.left) * k, ty = (cr.top + cr.height / 2 - fr.top) * k;
+    const [tx, ty] = counterPt(5.5 / 6);
     const a0 = -0.9 + rnd(-0.3, 0.3);
     darts.push({ x0: CX + Math.cos(a0) * RB, y0: CY + Math.sin(a0) * RB, cx: (CX + tx) / 2 + rnd(-10, 10), cy: Math.min(CY, ty) - rnd(25, 45), tx, ty, t: 0, life: 0.52, hue: pickHue(), trail: [], onLand });
   }
   function burst(x, y, n, hue) {
     for (let i = 0; i < n; i++) { const a = rnd(0, TAU), v = rnd(20, 60); motes.push({ fx: x, fy: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: 0, life: rnd(0.3, 0.6), s: rnd(2, 4), hue: hue + rnd(-40, 40), layer: 1 }); }
+  }
+  // at high charge a living ribbon of energy links the ball to the counter, with beads flowing along it
+  let linkPt = null, linkAt = 0;
+  function drawLink(g, I, now) {
+    if (!linkPt || now - linkAt > 400) { linkAt = now; linkPt = counterPt(0); }
+    const [tx, ty] = [linkPt[0] - 3, linkPt[1]], x0 = CX + RB * 0.95, y0 = CY - 3;
+    const mx = (x0 + tx) / 2, my = Math.min(y0, ty) - 16, s = now / 1000, pts = [];
+    for (let i = 0; i <= 26; i++) {
+      const u = i / 26, v = 1 - u;
+      const x = v * v * x0 + 2 * v * u * mx + u * u * tx, y = v * v * y0 + 2 * v * u * my + u * u * ty;
+      const dx = 2 * v * (mx - x0) + 2 * u * (tx - mx), dy = 2 * v * (my - y0) + 2 * u * (ty - my), len = Math.hypot(dx, dy) || 1;
+      const env = Math.sin(Math.PI * u), wob = (Math.sin(s * 9 - u * 10) * 3.2 + Math.sin(s * 5.3 + u * 17) * 1.6) * env;
+      pts.push([x - (dy / len) * wob, y + (dx / len) * wob]);
+    }
+    for (let pass = 0; pass < 2; pass++) {
+      g.lineWidth = pass ? 1.1 : 5; g.strokeStyle = col(300 + 40 * Math.sin(s * 1.3), pass ? 86 : 64, I * (pass ? 0.75 : 0.16));
+      g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (const p of pts) g.lineTo(p[0], p[1]); g.stroke();
+    }
+    for (let b = 0; b < 3; b++) {
+      const u = (s * 0.9 + b / 3) % 1, p = pts[Math.round(u * 26)];
+      g.fillStyle = col(HUES[b + 1], 92, I * Math.sin(Math.PI * u)); star(g, p[0], p[1], 3.2);
+    }
   }
   const col = (hue, l, a) => `hsla(${(hue % 360 + 360) % 360},100%,${l}%,${a.toFixed(3)})`;
   function star(g, x, y, s) {
@@ -320,14 +440,15 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
     }
   }
   let fxDirty = false;
-  function stepFx(dt, now, orbitI) {
+  function stepFx(dt, now, orbitI, linkI) {
     const [gb, gf] = ctxs;
-    const busy = strands.length || motes.length || rings.length || darts.length || orbitI > 0.01;
+    const busy = strands.length || motes.length || rings.length || darts.length || orbitI > 0.01 || linkI > 0.01;
     if (!busy) { if (fxDirty) { gb.clearRect(0, 0, W, W); gf.clearRect(0, 0, W, W); fxDirty = false; } return; }
     fxDirty = true;
     gb.clearRect(0, 0, W, W); gf.clearRect(0, 0, W, W);
     for (const g of ctxs) { g.globalCompositeOperation = "lighter"; g.lineCap = "round"; }
     drawOrbits(ctxs, orbitI, now);
+    if (linkI > 0.01) drawLink(gf, linkI, now);
     for (let i = strands.length - 1; i >= 0; i--) {
       const s = strands[i]; s.t += dt; const k = s.t / s.life;
       if (k >= 1) { strands.splice(i, 1); continue; }
@@ -382,9 +503,13 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
     if (showing === "like") { heartV = Math.max(0, heartV - sp); if (heartV < 0.3) likeV = Math.min(1, likeV + sp); }
     else { likeV = Math.max(0, likeV - sp); if (likeV < 0.3) heartV = Math.min(1, heartV + sp); }
     if (drawOrb) drawOrb({ uTime: (now / 1000) * calm, uFlow: flow, uCharge: charge, uPulse: (now - lastTap) / 1000, uHover: hover, uHeart: heartV, uLike: likeV });
-    wrap.style.setProperty("--charge", charge.toFixed(3));
+    smash.style.setProperty("--charge", charge.toFixed(3));
+    if (drawMC) {
+      for (let i = 0; i < 6; i++) dig.uProg[i] = Math.min(1, dig.uProg[i] + dt / 0.8);
+      drawMC({ uTime: (now / 1000) * calm, uFlow: flow * 0.7, uCharge: charge, uPulse: (now - lastLand) / 1000, ...dig });
+    }
     if (!reduced() && charge > 0.45 && Math.random() < dt * (charge - 0.35) * 10) spawnStrand(charge);   // overflowing magic
-    stepFx(dt, now, reduced() ? 0 : smooth(0.35, 0.85, charge));
+    stepFx(dt, now, reduced() ? 0 : smooth(0.35, 0.85, charge), reduced() ? 0 : smooth(0.45, 0.9, charge));
     raf = requestAnimationFrame(frame);
   }
   function start() { if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); } }
@@ -399,12 +524,19 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   let day = todayStr(), sayings = [];
   let serverTotal = 0, pending = 0, inflight = 0, shown = -1, flushT = 0, warned = false, nudged = false;
   function showSaying() { quote.textContent = sayings.length ? sayings[dayNum(day) % sayings.length].body : "I will always believe in you."; }
-  // 2000s hit-counter digits: 000168
+  // hit-counter digits (000168): the magic tiles when WebGL is up, plain cells otherwise
   function setShown(n, roll = false) {
     if (n <= shown) return;
     const prev = shown < 0 ? "" : String(shown).padStart(6, "0");
     shown = n;
     const s = String(n).padStart(6, "0");
+    srCount.textContent = `${n} ${n === 1 ? "like" : "likes"} today`;
+    const six = s.slice(-6), animate = roll && prev && !reduced();
+    for (let i = 0; i < 6; i++) {
+      const d = Number(six[i]);
+      if (prev && d === dig.uCur[i]) continue;
+      dig.uPrev[i] = prev ? dig.uCur[i] : d; dig.uCur[i] = d; dig.uProg[i] = animate && dig.uPrev[i] !== d ? 0 : 1;
+    }
     if (cells.children.length !== s.length) cells.replaceChildren(...[...s].map(() => h("b")));
     [...s].forEach((ch, i) => {
       const b = cells.children[i];
@@ -483,7 +615,11 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
     const n = 2 + Math.round(charge * 3);
     for (let i = 0; i < n; i++) spawnStrand(charge);
     for (let i = 0; i < 3 + Math.round(charge * 5); i++) spawnMote();
-    if (counted) spawnDart(() => setShown(serverTotal + pending + inflight, true));
+    if (counted) spawnDart(() => {
+      lastLand = performance.now();
+      setShown(serverTotal + pending + inflight, true);
+      frameEl.animate([{ filter: "brightness(1.7) saturate(1.3)" }, { filter: "none" }], { duration: 420, easing: "ease-out" });
+    });
   }
   btn.addEventListener("pointerdown", (e) => { if (e.button !== 0) return; e.preventDefault(); tap(); });
   btn.addEventListener("keydown", (e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); tap(); } });
