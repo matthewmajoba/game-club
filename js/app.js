@@ -226,6 +226,8 @@ function renderTicker() {
   const list = pool.length ? pool.slice(0, 30) : ["Welcome to Game Club!"];
   el.replaceChildren(...list.flatMap((f, i) => (i ? [h("em", null, "★"), f] : [f])));
   requestAnimationFrame(() => { el.style.animationDuration = Math.max(60, el.scrollWidth / 38) + "s"; });
+  // every time the ticker finishes a pass, deal a fresh random batch
+  if (!el.dataset.reshuffles) { el.dataset.reshuffles = "1"; el.addEventListener("animationiteration", renderTicker); }
 }
 
 // ---------- render: wall ----------
