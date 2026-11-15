@@ -239,8 +239,7 @@ function renderBudget() {
   }
   const used = myUsed(), left = Math.max(0, 3 - used);
   b.replaceChildren(
-    h("span", null, "Your heat: ", h("span", { class: "tok" }, "🔥".repeat(left), h("s", null, "🔥".repeat(3 - left))), " ", h("b", null, `${left} left`)),
-    h("small", null, "3 🔥 per person · max 2 on one game (that's a big vote) · tap a game to vote"));
+    h("span", null, "Your heat: ", h("span", { class: "tok" }, "🔥".repeat(left), h("s", null, "🔥".repeat(3 - left))), " ", h("b", null, `${left} left`)));
 }
 
 function coverImg(g) {
