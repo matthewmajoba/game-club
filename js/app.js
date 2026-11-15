@@ -3,6 +3,7 @@
 // (through h()), never as HTML, so nobody can inject scripts into the page.
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
+import { initPep } from "./pep.js";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
 const FN_URL = `${SUPABASE_URL}/functions/v1/games`;
@@ -702,7 +703,8 @@ async function signOut() {
   S.token = null; S.me = null; store.set("gc_token", null);
   afterAuthChange(); toast("Signed out. Bye! 👋");
 }
-function afterAuthChange() { trackPresence(); renderAll(); }
+let pep = null;
+function afterAuthChange() { trackPresence(); renderAll(); pep?.authChanged(); }
 
 // ---------- live updates ----------
 let gamesTimer = null;
@@ -743,6 +745,7 @@ $("mtabs").addEventListener("click", (e) => {
   } catch (e) { toast("Couldn't reach Game Club's database. Try refreshing.", true); }
   if (S.me) S.me = member(S.me.id) || S.me;
   renderTicker(); renderAll();
+  pep = initPep({ sb, rpc, h, toast, audio, getToken: () => S.token, getMe: () => S.me });
   setupRealtime(); setupPresence();
   if (S.me && !S.me.setup_done) openSetup();
 })();
