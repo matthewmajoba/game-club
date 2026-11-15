@@ -615,7 +615,7 @@ function openRules() {
   const body = dialog("The Rules");
   const max = Number(S.round?.max_hours || 8);
   body.append(h("ol", { class: "rules" },
-    h("li", null, `One game each per round, under ${max} hours. (${max}–${max + 2} gets a pass, just this once.)`),
+    h("li", null, `One game each per round, under ${max} hours.`),
     h("li", null, "You get 3 🔥 to vote with. Put 2 on one game for a big vote."),
     h("li", null, "Backing out of your pick = +1 shame. Forever."),
     h("li", null, "Hottest game wins the round. Then we all play it.")));
