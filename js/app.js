@@ -36,7 +36,6 @@ const store = {
   set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* private mode */ } },
 };
 const S = {
-  tz: store.get("gc_tz") === "CT" ? "CT" : "PT",
   token: store.get("gc_token"), me: null, members: [], round: null, games: [], votes: [], hof: [], shots: [],
   messages: [], facts: [], chatOn: store.get("gc_chat_on") !== "0", here: new Set(), hereReady: false,
   unread: 0, tab: "wall", openGameId: null, logOpen: false,
@@ -60,7 +59,7 @@ const $ = (id) => document.getElementById(id);
 const member = (id) => S.members.find((m) => m.id === id);
 const fmtTime = (t) => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 const fmtDay = (t) => new Date(t).toLocaleDateString([], { month: "short", day: "numeric" });
-// talk times show in Pacific or Central (each person picks; remembered on their device)
+// talk times show in Pacific or Central, whichever the admin picked for that date
 const ZONES = { PT: "America/Los_Angeles", CT: "America/Chicago" };
 const zoneOf = (k) => ZONES[k] || ZONES.PT;
 // "PT", or "CST"/"CDT" (whichever is true on that date)
@@ -426,15 +425,6 @@ function googleCal(g) {
   return "https://calendar.google.com/calendar/render?" + q;
 }
 let tickTimer = null;
-// the date + time line, with a PT / CST switch
-function whenRow(t) {
-  const text = h("span", null);
-  const paint = () => { text.replaceChildren(zDay(t, S.tz), h("i", null, " · "), zTime(t, S.tz)); sw.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.k === S.tz))); };
-  const sw = ["PT", "CT"].map((k) => h("button", { type: "button", "data-k": k, onclick: () => { S.tz = k; store.set("gc_tz", k); paint(); } }, zoneLabel(k, t)));
-  const row = h("div", { class: "when" }, text, h("span", { class: "tzsw", role: "group", "aria-label": "Show the time in" }, sw));
-  paint();
-  return row;
-}
 function gameNight(g) {
   clearInterval(tickTimer);
   const talk = h("button", { type: "button", class: "np-talk", onclick: () => openTalk(g) }, icon("message-text"), " Talking Points");
@@ -456,7 +446,7 @@ function gameNight(g) {
   return h("div", { class: "ticket" + (past ? " past" : "") }, stub,
     h("div", { class: "tmain" },
       h("div", { class: "tk" }, icon("message"), " THE TALK ", cd),
-      whenRow(t),
+      h("div", { class: "when" }, zDay(t, g.meet_tz), h("i", null, " · "), zTime(t, g.meet_tz)),
       h("div", { class: "note" }, "Play it before then. This is when we hop on to talk about it."),
       place ? h("div", { class: "where" }, place) : null,
       h("div", { class: "tact" }, talk,
@@ -946,7 +936,7 @@ function openAdmin() {
       catch (e) { toast(errMsg(e), true); }
     };
     const pad = (n) => String(n).padStart(2, "0");
-    let zone = S.tz;
+    let zone = won.meet_tz === "CT" ? "CT" : "PT";
     const when = h("input", { type: "datetime-local", class: "linkin", value: won.meet_at ? toZoneInput(won.meet_at, zone) : "", "aria-label": "Date and time to talk about it" });
     // switching the zone keeps the same moment and rewrites the picker in the new zone
     const zoneSel = h("select", { class: "zonesel", "aria-label": "Time zone" },
@@ -960,7 +950,7 @@ function openAdmin() {
     const saveNight = async (clear) => {
       if (!clear && !when.value) { toast("Pick a date and time first.", true); return; }
       try {
-        await rpc("set_game_night", { p_token: S.token, p_game_id: won.id, p_at: clear ? null : fromZoneInput(when.value, zone), p_place: clear ? null : where.value.trim() });
+        await rpc("set_game_night", { p_token: S.token, p_game_id: won.id, p_at: clear ? null : fromZoneInput(when.value, zone), p_place: clear ? null : where.value.trim(), p_tz: zone });
         await refreshGames(); toast(clear ? "Date cleared." : "It's on the calendar!"); closeDialog();
       } catch (e) { toast(errMsg(e), true); }
     };

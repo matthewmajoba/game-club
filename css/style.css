@@ -179,13 +179,7 @@ button{font:inherit;color:inherit}
 @keyframes blinky{50%{color:#fff}}
 .ticket .when{font:900 clamp(22px,3.4vw,30px)/1 Impact,"Arial Black",sans-serif;color:#1a0518;letter-spacing:.5px;text-transform:uppercase}
 .ticket .when i{font-style:normal;color:#d6006b}
-.ticket .when{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
 .ticket .note{font:15px/1.15 var(--hand);color:#7a1a5a}
-/* PT / CST switch */
-.tzsw{display:inline-flex;border:2px solid #2a0a24;border-radius:999px;overflow:hidden;vertical-align:middle;flex:none}
-.tzsw button{font:400 10px/1 Bungee,Impact,sans-serif;letter-spacing:.06em;padding:4px 7px;border:0;background:#fff3d6;color:#2a0a24;cursor:pointer}
-.tzsw button[aria-pressed=true]{background:#2a0a24;color:#ffe53f}
-.tzsw button:focus-visible{outline:2px solid #ff1f8e;outline-offset:-2px}
 .zonesel{font:13px Tahoma,Verdana,sans-serif;padding:4px;border:2px inset #e8eaf2;background:#fff;color:#111}
 .linkbox .row .linkin{flex:1;min-width:180px;width:auto}
 .ticket .where{font:17px/1.15 var(--hand);color:#4a1a40;overflow-wrap:anywhere}
