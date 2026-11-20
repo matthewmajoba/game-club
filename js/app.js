@@ -352,8 +352,7 @@ function renderNowPlaying() {
   box.replaceChildren(
     // the dark backdrop, clipped to the panel
     h("div", { class: "np-back", ...hide },
-      g.cover_url ? h("img", { class: "np-bg", src: g.cover_url, alt: "" }) : null,
-      h("div", { class: "np-floor" })),
+      g.cover_url ? h("img", { class: "np-bg", src: g.cover_url, alt: "" }) : null),
     // the lights: these are allowed to spill a little past the panel
     h("div", { class: "np-spill", ...hide },
       fan(FAN_A, "a"), fan(FAN_B, "b"),
