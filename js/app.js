@@ -36,7 +36,7 @@ const store = {
   set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* private mode */ } },
 };
 const S = {
-  token: store.get("gc_token"), me: null, members: [], round: null, games: [], votes: [], hof: [],
+  token: store.get("gc_token"), me: null, members: [], round: null, games: [], votes: [], hof: [], shots: [],
   messages: [], facts: [], chatOn: store.get("gc_chat_on") !== "0", here: new Set(), hereReady: false,
   unread: 0, tab: "wall", openGameId: null, logOpen: false,
 };
@@ -305,6 +305,7 @@ function renderWall() {
     ...(extra > 0 ? [h("button", { type: "button", class: "more", onclick: openLog }, `+${extra} more in the Log`)] : []));
 
   renderNowPlaying();
+  renderSnaps();
 }
 
 // ---------- render: the game we're playing (latest winner + where to play it) ----------
@@ -406,25 +407,123 @@ function gameNight(g) {
         past ? null : h("a", { class: "np-cal", href: googleCal(g), target: "_blank", rel: "noopener noreferrer" }, "Google"))));
 }
 
-// talking points: what a game club actually talks about (like book club questions)
+// talking points: four simple questions for game night
 const TALK = [
-  ["eye", "First impressions", ["What hooked you in the first hour, or almost made you quit?", "Was it the game you expected it to be?"]],
-  ["gamepad", "How it plays", ["What do you do over and over? Was it still fun the 100th time?", "Which mechanic was the best, and which one drove you nuts?", "Too easy, too hard, or just right?"]],
-  ["book-open", "Story & characters", ["What was the story really about, underneath?", "Which character or moment is stuck in your head?", "Did playing it tell the story too, not just the cutscenes?"]],
-  ["music", "Look, sound & world", ["How did the art and music make you feel?", "Is there a place in it you'd go back to just to hang out?"]],
-  ["heart", "Big feelings", ["When did you feel something: tense, sad, proud, scared?", "Was there a moment you yelled at the screen?"]],
-  ["pencil", "If you made it", ["If you could change one thing, what would it be?", "Why do you think the makers did it the way they did?"]],
-  ["fire", "Hot take", ["One opinion you think nobody else in the club will agree with."]],
-  ["trophy", "The verdict", ["Score out of 10, and who would you tell to play it?", "Did you finish it? (No shame either way.)"]],
+  ["heart", "What did you love?"],
+  ["angry", "What bugged you?"],
+  ["sparkle", "What moment stuck with you?"],
+  ["trophy", "Would you tell a friend to play it?"],
 ];
 function openTalk(g) {
-  const body = dialog("Talking Points", { wide: true });
+  const body = dialog("Talking Points");
   body.append(
-    h("p", { class: "talk-intro" }, "Nobody has to answer everything. Pick one or two of these about ", h("b", null, g.title), " and bring them to game night."),
-    h("div", { class: "talk" }, TALK.map(([ic, head, qs]) => h("div", { class: "tp" },
-      h("h3", null, icon(ic), " ", head), h("ul", null, qs.map((q) => h("li", null, q)))))),
-    h("p", { class: "talk-tip" }, icon("sparkles"), " Bonus: bring a screenshot of your favorite moment and drop it in the chat."));
+    h("p", { class: "talk-intro" }, "Come ready to chat about ", h("b", null, g.title), ":"),
+    h("ol", { class: "talk" }, TALK.map(([ic, q]) => h("li", null, icon(ic), h("span", null, q)))));
 }
+
+// ---------- snapshots: one screenshot each from your playthrough + why it caught your eye ----------
+const shotUrl = (path) => `${SUPABASE_URL}/storage/v1/object/public/shots/${path.split("/").map(encodeURIComponent).join("/")}`;
+async function loadShots() {
+  const g = S.hof[0];
+  if (!g) { S.shots = []; return; }
+  const { data } = await sb.from("shots").select("*").eq("game_id", g.id).order("created_at");
+  S.shots = data || [];
+}
+const PIN_TILTS = ["-3deg", "2deg", "-1.5deg", "3deg", "-2.5deg", "1deg"];
+function renderSnaps() {
+  const box = $("snaps");
+  const g = S.hof[0];
+  if (!g) { box.hidden = true; return; }
+  const mine = S.me && S.shots.find((x) => x.member_id === S.me.id);
+  const cards = S.shots.filter((x) => member(x.member_id)).map((x, i) => {
+    const m = member(x.member_id);
+    return h("button", { type: "button", class: "polaroid" + (S.me && x.member_id === S.me.id ? " own" : ""), vars: { "--r": PIN_TILTS[i % PIN_TILTS.length] },
+      onclick: () => openShot(x), "aria-label": `${m.name}'s snapshot: ${x.caption}` },
+      h("span", { class: "pin", "aria-hidden": "true" }),
+      h("span", { class: "photo" }, h("img", { src: shotUrl(x.path), alt: "", loading: "lazy" })),
+      h("span", { class: "cap" }, x.caption),
+      h("span", { class: "by" }, nameEl(m)));
+  });
+  if (S.me && !mine) cards.push(h("button", { type: "button", class: "polaroid add", onclick: () => openShotUpload(g) },
+    h("span", { class: "photo" }, icon("image-2-plus"), h("b", null, "Add your snapshot")),
+    h("span", { class: "cap" }, "a screenshot from your playthrough + why it caught your eye")));
+  box.replaceChildren(
+    h("div", { class: "snap-head" },
+      h("h2", null, icon("camera"), " SNAPSHOTS"),
+      h("p", null, "One screenshot each from your playthrough of ", h("b", null, g.title), ", and why it caught your eye.")),
+    cards.length ? h("div", { class: "board" }, cards)
+      : h("div", { class: "board empty" }, h("p", null, S.me ? "" : "No snapshots yet. Members can pin theirs up once they sign in.")));
+  box.hidden = false;
+}
+function openShot(x) {
+  const m = member(x.member_id);
+  const body = dialog(`${m?.name || "?"}'s snapshot`, { wide: true });
+  const isMine = S.me && x.member_id === S.me.id;
+  body.append(
+    h("img", { class: "shot-big", src: shotUrl(x.path), alt: x.caption }),
+    h("p", { class: "shot-cap" }, x.caption),
+    h("div", { class: "row" }, nameEl(m), h("span", { class: "muted" }, fmtDay(x.created_at))),
+    isMine ? h("div", { class: "row" },
+      h("button", { type: "button", class: "btn", onclick: () => openShotUpload(S.hof[0], x) }, lbl("image", "Change it")),
+      h("button", { type: "button", class: "btn red", onclick: async () => {
+        try { await callFn({ action: "shot_remove", token: S.token, game_id: x.game_id }); closeDialog(); await refreshShots(); toast("Snapshot taken down."); }
+        catch (e) { toast(errMsg(e), true); }
+      } }, "Take it down")) : null);
+}
+// shrink big screenshots in the browser before sending (max 1600px, JPEG)
+function shrink(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      let q = 0.86, out = c.toDataURL("image/jpeg", q);
+      while (out.length > 2_800_000 && q > 0.4) { q -= 0.12; out = c.toDataURL("image/jpeg", q); }
+      resolve(out);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Couldn't open that image. Try a JPG or PNG screenshot.")); };
+    img.src = url;
+  });
+}
+function openShotUpload(g, existing = null) {
+  const body = dialog(existing ? "Change your snapshot" : "Add your snapshot");
+  let data = null;
+  const preview = h("div", { class: "shot-prev" }, existing ? h("img", { src: shotUrl(existing.path), alt: "" }) : h("span", null, "No picture yet"));
+  const file = h("input", { type: "file", accept: "image/png,image/jpeg,image/webp", class: "sr", id: "shot-file" });
+  file.addEventListener("change", async () => {
+    const f = file.files?.[0]; if (!f) return;
+    try { data = await shrink(f); preview.replaceChildren(h("img", { src: data, alt: "your screenshot" })); }
+    catch (e) { data = null; toast(errMsg(e), true); }
+  });
+  const cap = h("textarea", { rows: 3, maxlength: 240, placeholder: "Why was this moment interesting?" });
+  cap.value = existing?.caption || "";
+  const left = h("small", { class: "muted" }, "");
+  const count = () => { left.textContent = `${240 - cap.value.length} left`; };
+  cap.addEventListener("input", count); count();
+  const go = h("button", { type: "button", class: "btn big" }, existing ? "Save it" : "Pin it up!");
+  go.addEventListener("click", async () => {
+    const caption = cap.value.trim();
+    if (!data && !existing) { toast("Pick a screenshot first.", true); return; }
+    if (caption.length < 3) { toast("Say why this moment was interesting.", true); return; }
+    go.disabled = true; go.textContent = "Uploading...";
+    try {
+      if (data) await callFn({ action: "shot_upload", token: S.token, game_id: g.id, caption, image: data });
+      else await rpc("set_shot_caption", { p_token: S.token, p_game_id: g.id, p_caption: caption });
+      closeDialog(); await refreshShots(); toast(["Pinned up! ", icon("camera")]);
+    } catch (e) { toast(errMsg(e), true); go.disabled = false; go.textContent = existing ? "Save it" : "Pin it up!"; }
+  });
+  body.append(
+    h("p", { class: "talk-intro" }, "Pick a screenshot from your playthrough of ", h("b", null, g.title), " and say why it caught your eye."),
+    preview,
+    h("label", { class: "btn", for: "shot-file" }, lbl("image", existing ? "Pick a different screenshot" : "Choose a screenshot")), file,
+    cap, left,
+    h("div", { class: "row" }, go));
+}
+async function refreshShots() { await loadShots(); renderSnaps(); }
 
 // ---------- render: chat ----------
 function renderChatMenu() {
@@ -728,7 +827,7 @@ async function openLog() {
   const list = h("div", { class: "loglist glit" }, "loading...");
   body.append(h("small", null, "Everything that happened, newest first. Colors = who did it."), list);
   const { data } = await sb.from("log").select("*").order("created_at", { ascending: false }).limit(300);
-  const kindIcon = { join: "hand", suggest: "gamepad", vote: "fire", withdraw: "angry", pull: "cancel", approve: "check", round: "trophy", link: "joystick", night: "calendar" };
+  const kindIcon = { join: "hand", suggest: "gamepad", vote: "fire", withdraw: "angry", pull: "cancel", approve: "check", round: "trophy", link: "joystick", night: "calendar", shot: "camera" };
   list.replaceChildren(...(data?.length ? data.map((l) => h("p", { vars: { "--mc": member(l.member_id)?.color || "#ddd" } },
     h("span", { class: "ts" }, `${fmtDay(l.created_at)} ${fmtTime(l.created_at)}`), icon(kindIcon[l.kind] || "star", "lg"), " ", withIcons(l.text))) : [h("p", null, "Nothing yet. Go pick a game!")]));
 }
@@ -762,7 +861,8 @@ function openRules() {
     h("li", null, "You get 3 ", ...flames(1), " to vote with. Put 2 on one game for a big vote."),
     h("li", null, "Backing out of your pick = +1 shame. Forever."),
     h("li", null, "Hottest game wins. Then we all play it."),
-    h("li", null, "On game night we get together and talk about it. Check the Talking Points for ideas.")));
+    h("li", null, "Post one snapshot from your playthrough and say why it caught your eye."),
+    h("li", null, "On game night we get together and talk about it.")));
 }
 function openAdmin() {
   const body = dialog("Admin");
@@ -884,8 +984,8 @@ let pep = null;
 function afterAuthChange() { trackPresence(); renderAll(); pep?.authChanged(); }
 
 // ---------- live updates ----------
-let gamesTimer = null;
-async function refreshGames() { await loadRoundAndGames(); renderNav(); renderWall(); if (S.openGameId) refreshGameDialog(); }
+let gamesTimer = null, shotsTimer = null;
+async function refreshGames() { await loadRoundAndGames(); await loadShots(); renderNav(); renderWall(); if (S.openGameId) refreshGameDialog(); }
 const refreshGamesSoon = () => { clearTimeout(gamesTimer); gamesTimer = setTimeout(refreshGames, 250); };
 function setupRealtime() {
   sb.channel("db")
@@ -902,6 +1002,7 @@ function setupRealtime() {
       if (S.openGameId === p.new.game_id) { const box = $("layer").querySelector(".notes"); if (box) loadNotes(p.new.game_id, box); }
     })
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "log" }, () => { if (S.logOpen) openLog(); })
+    .on("postgres_changes", { event: "*", schema: "public", table: "shots" }, () => { clearTimeout(shotsTimer); shotsTimer = setTimeout(refreshShots, 300); })
     .subscribe();
 }
 
@@ -922,6 +1023,7 @@ document.querySelectorAll("[data-ico]").forEach((el) => el.replaceWith(icon(el.d
 (async function start() {
   try {
     await Promise.all([loadMembers(), loadRoundAndGames(), loadMessages(), loadFacts(), checkSession()]);
+    await loadShots();
   } catch (e) { toast("Couldn't reach Game Club's database. Try refreshing.", true); }
   if (S.me) S.me = member(S.me.id) || S.me;
   renderTicker(); renderAll();

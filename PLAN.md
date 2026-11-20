@@ -86,8 +86,12 @@ Hannah, Junior, Katie, Sarah, Anthony, Giselle, Michael, Kat, Kalon, Matt (admin
 - Game night: in Admin, Matt sets when/where the club meets to talk about the winner
   (`games.meet_at`/`meet_place`, set by `set_game_night`). It shows as a movie ticket with a
   countdown, Add to calendar (.ics) and Google Calendar links.
-- Talking Points: a guide of discussion questions (first impressions, mechanics, story, look and
-  sound, feelings, design choices, hot take, verdict) opened from the ticket. Edit `TALK` in app.js.
+- Talking Points: four simple questions (loved, bugged you, moment that stuck, tell a friend?),
+  opened from the ticket. Edit `TALK` in app.js.
+- Snapshots: each member pins one screenshot from their playthrough of the winner plus why it
+  caught their eye (`shots` table, public `shots` storage bucket). Uploads go through the `games`
+  edge function (`shot_upload` / `shot_remove`), which checks the session token and that the
+  file really is a JPG/PNG/WEBP. The browser shrinks pictures to 1600px JPEG first.
 
 ## Icons
 - Pixel icons from Pixelarticons (MIT, credited in the footer), copied into `js/icons.js`.

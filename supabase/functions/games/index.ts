@@ -95,6 +95,42 @@ Deno.serve(async (req) => {
       return json({ game: data, verdict: v });
     }
 
+    // snapshots: one screenshot per member for the game we're playing, with a caption
+    if (action === "shot_upload" || action === "shot_remove") {
+      const { data: member, error: authErr } = await db.rpc("member_for_token", { p_token: String(p.token ?? "") });
+      if (authErr || !member) return json({ error: "You need to sign in first." }, 401);
+      const gameId = Number(p.game_id);
+      if (!Number.isInteger(gameId) || gameId <= 0) return json({ error: "Bad game id." }, 400);
+
+      if (action === "shot_remove") {
+        const { data: old, error } = await db.rpc("remove_shot_internal", { p_member: member, p_game: gameId });
+        if (error) return json({ error: error.message }, 400);
+        if (old) await db.storage.from("shots").remove([old]);
+        return json({ ok: true });
+      }
+
+      const caption = String(p.caption ?? "").trim();
+      if (caption.length < 3) return json({ error: "Say why this moment was interesting (a few words is fine)." }, 400);
+      if (caption.length > 240) return json({ error: "Keep the caption under 240 characters." }, 400);
+      const b64 = String(p.image ?? "").replace(/^data:image\/\w+;base64,/, "");
+      if (!b64 || b64.length > 4_300_000) return json({ error: "That image is too big. Try a smaller one." }, 400);
+      let bytes: Uint8Array;
+      try { bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)); } catch { return json({ error: "Couldn't read that image." }, 400); }
+      // only real images: check the file's first bytes, not what the browser claims
+      const isJpg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+      const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+      const isWebp = String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" && String.fromCharCode(...bytes.slice(8, 12)) === "WEBP";
+      if (!isJpg && !isPng && !isWebp) return json({ error: "That isn't a JPG, PNG or WEBP image." }, 400);
+      const [ext, type] = isJpg ? ["jpg", "image/jpeg"] : isPng ? ["png", "image/png"] : ["webp", "image/webp"];
+      const path = `${gameId}/${member}-${Date.now()}.${ext}`;
+      const up = await db.storage.from("shots").upload(path, bytes, { contentType: type, cacheControl: "31536000", upsert: false });
+      if (up.error) return json({ error: "Upload failed: " + up.error.message }, 500);
+      const { data: old, error } = await db.rpc("save_shot_internal", { p_member: member, p_game: gameId, p_path: path, p_caption: caption });
+      if (error) { await db.storage.from("shots").remove([path]); return json({ error: error.message }, 400); }
+      if (old) await db.storage.from("shots").remove([old]);
+      return json({ ok: true, path });
+    }
+
     return json({ error: "Unknown action." }, 400);
   } catch (e) {
     return json({ error: "Something broke: " + (e instanceof Error ? e.message : String(e)) }, 500);
