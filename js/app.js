@@ -331,27 +331,11 @@ function renderWall() {
 }
 
 // ---------- render: the game we're playing (latest winner + where to play it) ----------
-// sharp lights: laser fans, neon tubes and aurora ribbons that spill a little past the panel's edge
+// sharp lights: laser fans and neon tubes that spill a little past the panel's edge
 const safeLink = (u) => (typeof u === "string" && /^https?:\/\/\S+$/i.test(u) ? u : null);
-const NS_SVG = "http://www.w3.org/2000/svg";
-const svgEl = (tag, attrs = {}, ...kids) => { const e = document.createElementNS(NS_SVG, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); e.append(...kids); return e; };
 // laser fans: [angle deg, color]
 const FAN_A = [[-150, "#5ff"], [-118, "#fff"], [-92, "#b6ff3d"], [-64, "#5ff"], [-38, "#fff"], [-14, "#ff3fa4"], [10, "#5ff"], [34, "#fff"], [58, "#b6ff3d"], [84, "#5ff"], [112, "#ff3fa4"], [146, "#fff"], [176, "#5ff"]];
 const FAN_B = [[96, "#ff3fa4"], [118, "#ffe53f"], [140, "#ff3fa4"], [162, "#fff"], [184, "#ff3fa4"], [206, "#ffe53f"]];
-function aurora() {
-  const grad = (id, a, b) => svgEl("linearGradient", { id, x1: "0", x2: "1" },
-    svgEl("stop", { offset: "0", "stop-color": a, "stop-opacity": "0" }), svgEl("stop", { offset: ".35", "stop-color": a }),
-    svgEl("stop", { offset: ".7", "stop-color": b }), svgEl("stop", { offset: "1", "stop-color": b, "stop-opacity": "0" }));
-  const ribbon = (d, g, cls) => svgEl("g", { class: "rib " + cls },
-    svgEl("path", { d, stroke: `url(#${g})`, "stroke-width": "26", fill: "none", opacity: ".18" }),
-    svgEl("path", { d, stroke: `url(#${g})`, "stroke-width": "7", fill: "none", opacity: ".45" }),
-    svgEl("path", { d, stroke: "#fff", "stroke-width": "1.4", fill: "none", opacity: ".9" }));
-  return svgEl("svg", { class: "np-aurora", viewBox: "0 0 1000 420", preserveAspectRatio: "none", "aria-hidden": "true" },
-    svgEl("defs", {}, grad("au1", "#3ff", "#ff3fa4"), grad("au2", "#b6ff3d", "#3ff"), grad("au3", "#ff3fa4", "#ffe53f")),
-    ribbon("M-40 330 C 220 150 430 420 640 250 S 900 90 1040 150", "au1", "r1"),
-    ribbon("M-40 380 C 260 260 520 360 760 300 S 960 230 1040 260", "au2", "r2"),
-    ribbon("M-40 90 C 200 40 380 160 560 110 S 860 20 1040 60", "au3", "r3"));
-}
 function renderNowPlaying() {
   const box = $("nowplay");
   const g = S.hof[0];
@@ -369,7 +353,6 @@ function renderNowPlaying() {
     // the dark backdrop, clipped to the panel
     h("div", { class: "np-back", ...hide },
       g.cover_url ? h("img", { class: "np-bg", src: g.cover_url, alt: "" }) : null,
-      aurora(),
       h("div", { class: "np-floor" })),
     // the lights: these are allowed to spill a little past the panel
     h("div", { class: "np-spill", ...hide },

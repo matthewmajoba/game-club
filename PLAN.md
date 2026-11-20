@@ -81,7 +81,7 @@ Hannah, Junior, Katie, Sarah, Anthony, Giselle, Michael, Kat, Kalon, Matt (admin
   winners go to a "Hall of Fame" shelf.
 - The latest winner gets its own "Game we're playing" spot under the ticker: sharp lights.
   Laser fans (one bursting from behind the box art, one raking in from the top-right), neon tubes
-  riding the frame and overshooting the corners, aurora ribbons, and a light sweep. The lights
+  riding the frame and overshooting the corners, and a light sweep. The lights
   live in .np-spill, which is bigger than the panel and fades out, so they spill a little past
   the edge (sideways only on wide screens, so phones never scroll sideways). Box art | title +
   PLAY NOW | game night ticket. Matt posts the link in Admin (`games.play_url`, `set_play_link`).

@@ -49,18 +49,13 @@ button{font:inherit;color:inherit}
   body.tab-chat .wall{display:none}
 }
 
-/* the game we're playing: sharp lights. Laser fans, neon tubes and aurora ribbons;
+/* the game we're playing: sharp lights. Laser fans and neon tubes;
    the lights spill a little past the panel (--sp) and fade out. Only transform/opacity animate. */
 .nowplay{--fill:linear-gradient(#04020c,#04020c);--spx:46px;--spy:46px;padding:0;z-index:3;
   box-shadow:0 0 0 2px #000,0 0 36px rgba(60,240,255,.32),0 0 90px rgba(255,60,170,.22)}
 .np-back{position:absolute;inset:0;overflow:hidden;z-index:0;
   background:radial-gradient(90% 120% at 18% 50%,#13204a,transparent 60%),radial-gradient(70% 90% at 90% 0,#3a0838,transparent 60%),#04020c}
 .np-bg{position:absolute;inset:-10%;width:120%;height:120%;object-fit:cover;opacity:.26;filter:blur(24px) saturate(1.6)}
-.np-aurora{position:absolute;inset:0;width:100%;height:100%;mix-blend-mode:screen}
-.np-aurora .rib{transform-box:fill-box;animation:drift 9s ease-in-out infinite alternate}
-.np-aurora .r2{animation-duration:12s;animation-direction:alternate-reverse}
-.np-aurora .r3{animation-duration:10.5s}
-@keyframes drift{from{transform:translate(-3%,-4%)}to{transform:translate(3%,5%)}}
 .np-floor{position:absolute;left:0;right:0;bottom:0;height:34%;background:linear-gradient(transparent,rgba(60,240,255,.10));border-top:1px solid rgba(160,250,255,.35);box-shadow:0 -1px 16px rgba(60,240,255,.35)}
 /* the lights layer: bigger than the panel (--spy above/below, --spx at the sides), faded at its edges */
 .np-spill{position:absolute;inset:calc(-12px - var(--spy)) calc(-12px - var(--spx));z-index:1;pointer-events:none;overflow:hidden;
