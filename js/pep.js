@@ -13,6 +13,7 @@
 // every ~half second (the server takes at most 40 per call and 5000 per member per day).
 // Finished days are saved as Love Notes (see archive_love_notes in the database).
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
+import { icon } from "./icons.js";
 
 const TZ = "America/Los_Angeles";
 const TAU = Math.PI * 2;
@@ -342,7 +343,7 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   const srCount = h("span", { class: "sr" });
   const counter = h("div", { class: "hits", role: "status" }, frameEl, h("small", { "aria-hidden": "true" }, "likes"), srCount);
   const smash = h("div", { class: "smash" }, stageEl, counter);
-  const note = h("p", { class: "tapnote" }, "Like the message? Tap the ball to spread its influence far and wide ✨");
+  const note = h("p", { class: "tapnote" }, "Like the message? Tap the ball to spread its influence far and wide ", icon("sparkles"));
   root.replaceChildren(title, quote, smash, note);
 
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -643,7 +644,7 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
     swell();
     for (let i = 0; i < 6; i++) { const [x, y] = counterPt(0.1 + i * 0.16); burst(x, y, 8, [318, 338, 268, 190][i % 4]); }
     frameEl.animate([{ filter: "brightness(2) saturate(1.4)" }, { filter: "none" }], { duration: 1400, easing: "ease-out" });
-    toast(`🌸 ${m.toLocaleString()} likes today! The counter is blooming.`);
+    toast([icon("sparkles"), ` ${m.toLocaleString()} likes today! The counter is blooming.`]);
   }
 
   // ---------- a tap ----------

@@ -4,6 +4,7 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
 import { initPep } from "./pep.js";
+import { icon, withIcons } from "./icons.js";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
 const FN_URL = `${SUPABASE_URL}/functions/v1/games`;
@@ -21,11 +22,11 @@ const PALETTE = [
   ["Lavender Haze", "#d0a8ff"], ["Gold Rush", "#ffc21f"],
 ];
 const TIERS = [
-  { k: "ICE COLD", a: "🥶", b: "🧊", rule: "0 🔥" },
-  { k: "MEH", a: "😐", b: "😑", rule: "under 10% of the heat" },
-  { k: "WARMING UP", a: "😏", b: "😉", rule: "10–20%" },
-  { k: "HOT", a: "🥵", b: "😩", rule: "20–30%" },
-  { k: "ON FIRE", a: "🔥", b: "🥵", rule: "over 30%" },
+  { k: "ICE COLD", a: "snowflake", b: "snowflake-solid", rule: "no heat" },
+  { k: "MEH", a: "meh", b: "annoyed", rule: "under 10% of the heat" },
+  { k: "WARMING UP", a: "smile", b: "laugh", rule: "10–20%" },
+  { k: "HOT", a: "thermometer", b: "sun-solid", rule: "20–30%" },
+  { k: "ON FIRE", a: "fire", b: "zap", rule: "over 30%" },
 ];
 const TILTS = ["-2deg", "1.5deg", "-1deg", "2deg", "-1.5deg", "1deg"];
 
@@ -69,7 +70,11 @@ function nameEl(m, cls = "nm") {
   if (!m) { reloadMembersSoon(); return h("span", { class: cls }, "…"); }
   return h("span", { class: cls, vars: { "--mc": m.color || "#fff", "--mf": m.font ? `'${m.font}'` : "var(--ui)", "--fs": String(FONTS[m.font] || 0.85) } }, m.name);
 }
-const flip = (t) => h("span", { class: "flip" }, h("b", null, t.a), h("b", null, t.b));
+const flip = (t) => h("span", { class: "flip" }, h("b", null, icon(t.a)), h("b", null, icon(t.b)));
+// a flame (the voting currency); n of them in a row
+const flames = (n) => Array.from({ length: n }, () => icon("fire", "flame"));
+// a button/label with a pixel icon in front
+const lbl = (name, text) => [icon(name), " ", text];
 
 function toast(msg, bad = false) {
   const t = h("div", { class: "toast" + (bad ? " bad" : ""), role: "status" }, msg);
@@ -206,12 +211,12 @@ const livePick = (memberId) => S.games.find((g) => g.member_id === memberId && (
 function renderNav() {
   const nav = $("nav");
   const items = [
-    h("button", { type: "button", class: "btn blue", onclick: openLog }, "📜 Log"),
-    h("button", { type: "button", class: "btn", onclick: openHof }, "🏆 Hall of Fame"),
-    h("button", { type: "button", class: "btn pink", onclick: openLoveNotes }, "🔮 Crystal Ball of Encouragement and Love"),
+    h("button", { type: "button", class: "btn blue", onclick: openLog }, lbl("scroll-vertical", "Log")),
+    h("button", { type: "button", class: "btn", onclick: openHof }, lbl("trophy", "Hall of Fame")),
+    h("button", { type: "button", class: "btn pink", onclick: openLoveNotes }, lbl("sparkles", "Crystal Ball of Encouragement and Love")),
     h("button", { type: "button", class: "btn", onclick: openRules }, "Rules"),
   ];
-  if (S.me?.is_admin) items.push(h("button", { type: "button", class: "btn pink", onclick: openAdmin }, "⚙ Admin"));
+  if (S.me?.is_admin) items.push(h("button", { type: "button", class: "btn pink", onclick: openAdmin }, lbl("settings-cog", "Admin")));
   items.push(S.me
     ? h("button", { type: "button", class: "btn", onclick: signOut }, "Sign out (", S.me.name, ")")
     : h("button", { type: "button", class: "btn on", onclick: openLogin }, "Sign in"));
@@ -226,7 +231,7 @@ function renderTicker() {
   const pool = S.facts.slice();
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
   const list = pool.length ? pool.slice(0, 30) : ["Welcome to Game Club!"];
-  el.replaceChildren(...list.flatMap((f, i) => (i ? [h("em", null, "★"), f] : [f])));
+  el.replaceChildren(...list.flatMap((f, i) => (i ? [h("em", null, icon("star")), f] : [f])));
   requestAnimationFrame(() => { el.style.animationDuration = Math.max(60, el.scrollWidth / 38) + "s"; });
   // every time the ticker finishes a pass, deal a fresh random batch
   if (!el.dataset.reshuffles) { el.dataset.reshuffles = "1"; el.addEventListener("animationiteration", renderTicker); }
@@ -236,13 +241,13 @@ function renderTicker() {
 function renderBudget() {
   const b = $("budget");
   if (!S.me) {
-    b.replaceChildren(h("span", null, "You get 3 🔥 to vote with once you sign in."),
+    b.replaceChildren(h("span", null, "You get 3 ", ...flames(1), " to vote with once you sign in."),
       h("button", { type: "button", class: "btn", onclick: openLogin }, "Sign in"));
     return;
   }
   const used = myUsed(), left = Math.max(0, 3 - used);
   b.replaceChildren(
-    h("span", null, "Your heat: ", h("span", { class: "tok" }, "🔥".repeat(left), h("s", null, "🔥".repeat(3 - left))), " ", h("b", null, `${left} left`)));
+    h("span", null, "Your heat: ", h("span", { class: "tok" }, ...flames(left), h("s", null, ...flames(3 - left))), " ", h("b", null, `${left} left`)));
 }
 
 function coverImg(g) {
@@ -274,10 +279,10 @@ function renderWall() {
       caseEl(g, { tier: ti, mine: mine.get(g.id) || 0 }),
       h("div", { class: "edge" }),
       h("div", { class: "talker", vars: { "--r": TILTS[i % TILTS.length] } },
-        h("div", { class: "hd" }, "★ CLUB PICK ★"),
+        h("div", { class: "hd" }, icon("star"), " CLUB PICK ", icon("star")),
         h("span", { class: "who" }, m?.name || "?"),
         h("span", { class: "say" }, g.title),
-        h("div", { class: "bc" }, h("i"), h("span", null, g.hours ? `${g.hours} HRS` : "? HRS"), h("span", null, g.status === "pending" ? "WAITING" : `🔥${n} · ${pct}%`))));
+        h("div", { class: "bc" }, h("i"), h("span", null, g.hours ? `${g.hours} HRS` : "? HRS"), h("span", null, g.status === "pending" ? "WAITING" : [...flames(1), `${n} · ${pct}%`]))));
   });
   const open = S.members.filter((m) => !livePick(m.id));
   open.sort((a, b) => (S.me && a.id === S.me.id ? -1 : S.me && b.id === S.me.id ? 1 : 0));
@@ -296,54 +301,62 @@ function renderWall() {
   const extra = out.length - BUCKET_MAX;
   $("bin").replaceChildren(h("span", { class: "lbl" }, "RETURN BUCKET"),
     ...(out.length ? out.slice(0, BUCKET_MAX).map((g, i) => h("div", { class: "scrap", vars: { "--r": i % 2 ? "4deg" : "-5deg" } }, `${member(g.member_id)?.name}: ${g.title}`))
-      : [h("span", { class: "none" }, "nobody has chickened out... yet 👀")]),
+      : [h("span", { class: "none" }, "nobody has chickened out... yet ", icon("eye"))]),
     ...(extra > 0 ? [h("button", { type: "button", class: "more", onclick: openLog }, `+${extra} more in the Log`)] : []));
 
   renderNowPlaying();
 }
 
-// ---------- render: now playing (the latest winner + where to get it) ----------
+// ---------- render: the game we're playing (latest winner + where to play it) ----------
+// a cinematic, glossy, extremely 2004 movie-trailer panel
 const safeLink = (u) => (typeof u === "string" && /^https?:\/\/\S+$/i.test(u) ? u : null);
-const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
 function renderNowPlaying() {
   const box = $("nowplay");
   const g = S.hof[0];
   if (!g) { box.hidden = true; return; }
   const m = member(g.member_id), url = safeLink(g.play_url);
-  const get = url
-    ? h("div", { class: "get" },
-      h("a", { class: "btn big getbtn", href: url, target: "_blank", rel: "noopener noreferrer" }, "🕹️ GET THE GAME"),
-      h("small", null, "at ", hostOf(url)))
-    : h("div", { class: "get" },
-      h("span", { class: "soon" }, "Link to the game coming soon..."),
-      S.me?.is_admin ? h("button", { type: "button", class: "btn pink", onclick: openAdmin }, "⚙ Add the link") : null);
-  box.replaceChildren(
-    h("div", { class: "np-art" }, g.cover_url ? coverImg(g) : h("div", { class: "marker" }, g.title)),
-    h("div", { class: "np-info" },
-      h("div", { class: "np-sign" }, h("span", null, "🏆 NOW PLAYING 🏆")),
-      h("h2", { class: "np-title" }, g.title),
-      h("div", { class: "np-who" }, "picked by ", h("b", { vars: { color: m?.color || "#fff" } }, m?.name || "?"),
-        g.ended_at ? h("span", { class: "nw" }, ` · won ${fmtDay(g.ended_at)}`) : null),
-      get));
+  const art = () => (g.cover_url ? coverImg(g) : h("div", { class: "marker" }, g.title));
+  const twinkles = [[6, 18, 0], [44, 8, 0.7], [92, 14, 1.3], [30, 86, 0.4], [78, 80, 1.9], [60, 26, 2.4], [96, 60, 1], [3, 70, 2.1]]
+    .map(([x, y, d]) => h("span", { class: "tw", vars: { left: x + "%", top: y + "%", "animation-delay": d + "s" } }, icon(d > 1.5 ? "sparkle" : "sparkles")));
+  const play = url
+    ? h("a", { class: "np-play", href: url, target: "_blank", rel: "noopener noreferrer" }, icon("play"), h("span", null, "PLAY NOW"))
+    : h("div", { class: "np-soon" }, h("span", null, "Coming soon to a computer near you..."),
+      S.me?.is_admin ? h("button", { type: "button", class: "btn pink", onclick: openAdmin }, lbl("settings-cog", "Add the link")) : null);
+  box.replaceChildren(h("div", { class: "np-stage" },
+    g.cover_url ? h("img", { class: "np-bg", src: g.cover_url, alt: "", "aria-hidden": "true" }) : null,
+    h("div", { class: "np-beams", "aria-hidden": "true" }, h("i"), h("i")),
+    h("div", { class: "np-fx", "aria-hidden": "true" }),
+    ...twinkles,
+    h("div", { class: "np-grid" },
+      h("div", { class: "np-case" }, art(), h("span", { class: "np-shine" })),
+      h("div", { class: "np-info" },
+        h("div", { class: "np-kicker" }, icon("star"), h("span", null, "GAME WE'RE PLAYING"), icon("star")),
+        h("h2", { class: "np-title" }, g.title),
+        h("div", { class: "np-who" }, "picked by ", h("b", { vars: { color: m?.color || "#fff" } }, m?.name || "?"),
+          g.ended_at ? h("span", { class: "nw" }, ` · crowned ${fmtDay(g.ended_at)}`) : null),
+        play)),
+    h("div", { class: "np-burst", "aria-hidden": "true" }, h("span", null, "THE", h("br"), "CLUB'S", h("br"), "PICK!")),
+    h("div", { class: "np-flare", "aria-hidden": "true" }),
+    h("div", { class: "np-bar top", "aria-hidden": "true" }), h("div", { class: "np-bar bot", "aria-hidden": "true" })));
   box.hidden = false;
 }
 
 // ---------- render: chat ----------
 function renderChatMenu() {
   const menu = $("chat-menu");
-  if (!S.me) { menu.replaceChildren(h("span", null, "Just looking 👀")); return; }
+  if (!S.me) { menu.replaceChildren(h("span", null, "Just looking ", icon("eye"))); return; }
   menu.replaceChildren(
     h("span", null, "You: ", h("b", null, S.me.name)),
-    h("button", { type: "button", class: "lnk", onclick: toggleChatOn, vars: { "margin-left": "auto" } }, S.chatOn ? "🚪 Sign Off" : "🚪 Sign On"));
+    h("button", { type: "button", class: "lnk", onclick: toggleChatOn, vars: { "margin-left": "auto" } }, S.chatOn ? lbl("logout", "Sign Off") : lbl("login", "Sign On")));
 }
 function renderHere() {
   const ids = [...S.here];
   $("here").replaceChildren(h("span", { class: "lbl" }, `here now (${ids.length}/10):`),
-    ...(ids.length ? ids.map((id) => nameEl(member(id))) : [h("span", { class: "lbl" }, "nobody... 🦗")]));
+    ...(ids.length ? ids.map((id) => nameEl(member(id))) : [h("span", { class: "lbl" }, "nobody... ", icon("bug"))]));
 }
 function msgEl(m) {
   const ts = h("span", { class: "ts" }, `(${fmtTime(m.created_at)})`);
-  if (m.kind !== "chat") return h("p", { class: "sys" }, ts, m.body);
+  if (m.kind !== "chat") return h("p", { class: "sys" }, ts, withIcons(m.body));
   const who = member(m.member_id);
   if (!who) { reloadMembersSoon(); return null; } // show it once we know who wrote it
   return h("p", null, ts, nameEl(who), h("span", { class: "msg" }, ": ", m.body));
@@ -361,7 +374,7 @@ function renderSend() {
     return;
   }
   if (!S.chatOn) {
-    box.replaceChildren(h("div", { class: "chat-note" }, "You're signed off. ", h("button", { type: "button", class: "btn", onclick: toggleChatOn }, "🚪 Sign on")));
+    box.replaceChildren(h("div", { class: "chat-note" }, "You're signed off. ", h("button", { type: "button", class: "btn", onclick: toggleChatOn }, lbl("login", "Sign on"))));
     return;
   }
   const ta = h("textarea", { id: "chat-input", rows: 2, placeholder: "type a message..." });
@@ -387,7 +400,7 @@ function dialog(title, { wide = false } = {}) {
   closeDialog();
   const body = h("div", { class: "body" });
   const win = h("div", { class: "win dlg" + (wide ? " wide" : ""), role: "dialog", "aria-modal": "true", "aria-label": title },
-    h("div", { class: "tbar" }, h("span", { class: "ico" }, "✦"), h("span", { class: "t" }, title),
+    h("div", { class: "tbar" }, h("span", { class: "ico" }, icon("sparkle")), h("span", { class: "t" }, title),
       h("button", { type: "button", class: "wb x", "aria-label": "Close", onclick: closeDialog }, "x")),
     body);
   const ov = h("div", { class: "overlay", onclick: (e) => { if (e.target === ov) closeDialog(); } }, win);
@@ -448,7 +461,7 @@ function openSetup() {
     }, h("i"), taken.has(c) ? `${taken.get(c)}'s` : n)));
     fonts.replaceChildren(...Object.keys(FONTS).map((f) => h("button", { type: "button", class: f === font ? "sel" : "", onclick: () => { font = f; draw(); } },
       nameEl({ name: S.me.name, color: color || "#ff3fa4", font: f }), h("small", null, f))));
-    preview.replaceChildren(nameEl({ name: S.me.name, color: color || "#fff", font }), h("span", null, "has signed on. 🚪"));
+    preview.replaceChildren(nameEl({ name: S.me.name, color: color || "#fff", font }), h("span", null, "has signed on. ", icon("login")));
   };
   draw();
   const save = async () => {
@@ -456,7 +469,7 @@ function openSetup() {
     if (!color) { err.textContent = "Pick a color first."; return; }
     try {
       S.me = await rpc("setup_profile", { p_token: S.token, p_color: color, p_font: font });
-      await loadMembers(); closeDialog(); renderAll(); toast("Lookin' good! 😎");
+      await loadMembers(); closeDialog(); renderAll(); toast(["Lookin' good! ", icon("sunglasses")]);
     } catch (e) { err.textContent = errMsg(e); await loadMembers(); draw(); }
   };
   body.append(h("h3", null, "Pick your color (first come, first served)"), sw,
@@ -549,18 +562,18 @@ async function refreshGameDialog() {
     h("div", { class: "facts" },
       h("div", null, "Picked by ", nameEl(picker)),
       h("div", null, h("b", null, "Length: "), g.hours ? `about ${g.hours} hrs${g.hours_source === "matt" ? " (checked by hand)" : ""}` : "unknown (needs an hours check)"),
-      g.status === "active" ? h("div", null, h("b", null, "Heat: "), `${n} 🔥 · ${pct}% of all the heat · `, h("span", { class: `t${ti}` }, flip(TIERS[ti])), " ", TIERS[ti].k) : null,
-      g.status === "won" ? h("div", { class: "ok" }, "🏆 WINNER") : null,
-      g.steam_appid ? h("a", { href: `https://store.steampowered.com/app/${g.steam_appid}/`, target: "_blank", rel: "noopener" }, "See it on Steam ↗") : null));
+      g.status === "active" ? h("div", null, h("b", null, "Heat: "), `${n} `, ...flames(1), ` · ${pct}% of all the heat · `, h("span", { class: `t${ti}` }, flip(TIERS[ti])), " ", TIERS[ti].k) : null,
+      g.status === "won" ? h("div", { class: "ok" }, icon("trophy"), " WINNER") : null,
+      g.steam_appid ? h("a", { href: `https://store.steampowered.com/app/${g.steam_appid}/`, target: "_blank", rel: "noopener" }, "See it on Steam ", icon("external-link")) : null));
 
   const parts = [top];
   const voters = S.votes.filter((v) => v.game_id === g.id);
-  if (voters.length) parts.push(h("div", { class: "voters" }, h("b", null, "Who's hot for it:"), voters.map((v) => h("span", null, nameEl(member(v.member_id)), " ", "🔥".repeat(v.points)))));
+  if (voters.length) parts.push(h("div", { class: "voters" }, h("b", null, "Who's hot for it:"), voters.map((v) => h("span", null, nameEl(member(v.member_id)), " ", ...flames(v.points)))));
 
   if (S.me && g.status === "active") {
     // tap to put heat on, tap the lit one again to take it back off
-    const opts = [[1, "🔥"], [2, "🔥🔥 big vote"]];
-    parts.push(h("div", null, h("h3", null, `Your vote (${3 - myUsed()} 🔥 left)`),
+    const opts = [[1, flames(1)], [2, [...flames(2), " big vote"]]];
+    parts.push(h("div", null, h("h3", null, `Your vote (${3 - myUsed()} `, ...flames(1), " left)"),
       h("div", { class: "votebar" }, opts.map(([p, label]) => h("button", {
         type: "button", class: "btn" + (mineNow === p ? " on" : ""), "aria-pressed": String(mineNow === p),
         disabled: mineNow !== p && usedElsewhere + p > 3,
@@ -575,7 +588,7 @@ async function refreshGameDialog() {
 
   if (S.me && g.member_id === S.me.id && (g.status === "active" || g.status === "pending")) {
     const box = h("div");
-    const ask = () => box.replaceChildren(h("div", { class: "confirm" }, h("b", null, "Back out? You'll get +1 shame and everyone will know. 😤"),
+    const ask = () => box.replaceChildren(h("div", { class: "confirm" }, h("b", null, "Back out? You'll get +1 shame and everyone will know. ", icon("angry")),
       h("div", { class: "row" }, h("button", { type: "button", class: "btn red", onclick: async () => {
         try { await rpc("withdraw_game", { p_token: S.token }); closeDialog(); await Promise.all([refreshGames(), loadMembers()]); renderAll(); sass(); }
         catch (e) { toast(errMsg(e), true); }
@@ -630,19 +643,19 @@ async function openLog() {
   const list = h("div", { class: "loglist glit" }, "loading...");
   body.append(h("small", null, "Everything that happened, newest first. Colors = who did it."), list);
   const { data } = await sb.from("log").select("*").order("created_at", { ascending: false }).limit(300);
-  const icon = { join: "👋", suggest: "🎮", vote: "🔥", withdraw: "😤", pull: "🚫", approve: "✅", round: "🏆", link: "🕹️" };
+  const kindIcon = { join: "hand", suggest: "gamepad", vote: "fire", withdraw: "angry", pull: "cancel", approve: "check", round: "trophy", link: "joystick" };
   list.replaceChildren(...(data?.length ? data.map((l) => h("p", { vars: { "--mc": member(l.member_id)?.color || "#ddd" } },
-    h("span", { class: "ts" }, `${fmtDay(l.created_at)} ${fmtTime(l.created_at)}`), `${icon[l.kind] || "•"} ${l.text}`)) : [h("p", null, "Nothing yet. Go pick a game!")]));
+    h("span", { class: "ts" }, `${fmtDay(l.created_at)} ${fmtTime(l.created_at)}`), icon(kindIcon[l.kind] || "star", "lg"), " ", withIcons(l.text))) : [h("p", null, "Nothing yet. Go pick a game!")]));
 }
 function openHof() {
-  const body = dialog("🏆 Hall of Fame", { wide: true });
+  const body = dialog("Hall of Fame", { wide: true });
   body.append(S.hof.length ? h("div", { class: "hof" }, S.hof.map((g) => h("div", null,
     g.cover_url ? coverImg(g) : h("div", { class: "marker" }, g.title), h("b", null, g.title), h("span", null, "picked by ", member(g.member_id)?.name || "?"))))
     : h("p", null, "No winners yet. Go put some games on the shelf!"));
 }
 // Crystal Ball of Encouragement and Love: every finished day's saying and how many likes it got (saved at midnight Pacific)
 async function openLoveNotes() {
-  const body = dialog("🔮 Crystal Ball of Encouragement and Love", { wide: true });
+  const body = dialog("Crystal Ball of Encouragement and Love", { wide: true });
   const list = h("div", { class: "lnotes" }, "loading...");
   body.append(list);
   try { await rpc("archive_love_notes", {}); } catch { /* still show what's saved */ }
@@ -652,7 +665,7 @@ async function openLoveNotes() {
   const best = Math.max(...notes.map((n) => n.likes));
   const pretty = (d) => new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
   list.replaceChildren(...notes.map((n) => h("div", { class: "lnote" + (best > 0 && n.likes === best ? " top" : "") },
-    best > 0 && n.likes === best ? h("span", { class: "crown" }, "👑 MOST LOVED") : null,
+    best > 0 && n.likes === best ? h("span", { class: "crown" }, icon("crown"), " MOST LOVED") : null,
     h("q", null, n.body),
     h("div", { class: "meta" }, h("span", null, h("b", null, n.likes.toLocaleString()), n.likes === 1 ? " like" : " likes"), h("span", null, pretty(n.day))))));
 }
@@ -661,7 +674,7 @@ function openRules() {
   const max = Number(S.round?.max_hours || 8);
   body.append(h("ol", { class: "rules" },
     h("li", null, `One game each, under ${max} hours.`),
-    h("li", null, "You get 3 🔥 to vote with. Put 2 on one game for a big vote."),
+    h("li", null, "You get 3 ", ...flames(1), " to vote with. Put 2 on one game for a big vote."),
     h("li", null, "Backing out of your pick = +1 shame. Forever."),
     h("li", null, "Hottest game wins. Then we all play it.")));
 }
@@ -672,7 +685,7 @@ function openAdmin() {
   const { per } = heat();
   const leader = S.games.filter((g) => g.status === "active").sort((a, b) => (per.get(b.id) || 0) - (per.get(a.id) || 0) || a.created_at.localeCompare(b.created_at))[0];
   const ask = () => box.replaceChildren(h("div", { class: "confirm" },
-    h("b", null, leader ? `${leader.title} wins with ${per.get(leader.id) || 0} 🔥, and the shelf gets cleared. Do it?` : "No games on the shelf yet."),
+    h("b", null, leader ? [`${leader.title} wins with ${per.get(leader.id) || 0} `, ...flames(1), ", and the shelf gets cleared. Do it?"] : "No games on the shelf yet."),
     h("div", { class: "row" }, h("button", { type: "button", class: "btn red", disabled: !leader, onclick: async () => {
       try { await rpc("close_round", { p_token: S.token, p_next_name: "" }); closeDialog(); await refreshGames(); celebrate("WINNER!"); }
       catch (e) { toast(errMsg(e), true); }
@@ -685,7 +698,7 @@ function openAdmin() {
   if (won) {
     const input = h("input", { type: "url", class: "linkin", placeholder: "https://... where to buy, download or play it", value: won.play_url || "", maxlength: 500, "aria-label": `Link for ${won.title}` });
     const save = async (url) => {
-      try { await rpc("set_play_link", { p_token: S.token, p_game_id: won.id, p_url: url }); await refreshGames(); toast(url ? "Link posted! 🕹️" : "Link taken down."); closeDialog(); }
+      try { await rpc("set_play_link", { p_token: S.token, p_game_id: won.id, p_url: url }); await refreshGames(); toast(url ? "Link posted!" : "Link taken down."); closeDialog(); }
       catch (e) { toast(errMsg(e), true); }
     };
     linkBox = h("div", { class: "linkbox" },
@@ -724,7 +737,7 @@ function sass() {
   const bubble = h("div", { class: "bubble" }, "ah");
   const ov = h("div", { class: "sass", onclick: () => ov.remove() }, h("div", { class: "stage" }, bubble, dude, h("small", null, "(tap to close)")));
   document.body.append(ov);
-  const frames = [["f1", "ah"], ["f2", "ah ah"], ["f3", "ah ah ah!"], ["f1", "ah ah ah!"], ["f2", "ah ah ah!"], ["f3", "ah ah ah! ☝️"]];
+  const frames = [["f1", "ah"], ["f2", "ah ah"], ["f3", "ah ah ah!"], ["f1", "ah ah ah!"], ["f2", "ah ah ah!"], ["f3", "ah ah ah!"]];
   frames.forEach(([cls, txt], i) => setTimeout(() => { dude.className = "dude " + cls; bubble.textContent = txt; if (i < 3) blip(880 - i * 90, 0); }, i * 380));
   setTimeout(() => ov.remove(), 3600);
 }
@@ -762,7 +775,7 @@ function toggleChatOn() {
 async function signOut() {
   try { await rpc("logout", { p_token: S.token }); } catch { /* already gone */ }
   S.token = null; S.me = null; store.set("gc_token", null);
-  afterAuthChange(); toast("Signed out. Bye! 👋");
+  afterAuthChange(); toast(["Signed out. Bye! ", icon("hand")]);
 }
 let pep = null;
 function afterAuthChange() { trackPresence(); renderAll(); pep?.authChanged(); }
@@ -800,6 +813,9 @@ $("mtabs").addEventListener("click", (e) => {
 });
 
 // ---------- go ----------
+// pixel icons written into the page shell as <i data-ico="name">
+document.querySelectorAll("[data-ico]").forEach((el) => el.replaceWith(icon(el.dataset.ico, el.className)));
+
 (async function start() {
   try {
     await Promise.all([loadMembers(), loadRoundAndGames(), loadMessages(), loadFacts(), checkSession()]);

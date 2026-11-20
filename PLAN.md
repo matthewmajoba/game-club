@@ -79,9 +79,15 @@ Hannah, Junior, Katie, Sarah, Anthony, Giselle, Michael, Kat, Kalon, Matt (admin
 ## Rounds
 - Matt (admin) has a secret button to close the round; hottest game wins, wall resets,
   winners go to a "Hall of Fame" shelf.
-- The latest winner gets its own "Now Playing" spot under the ticker. In Admin, Matt can post
-  a link to where everyone gets the game (`games.play_url`, set by `set_play_link`); it shows
-  as a big "Get the game" button.
+- The latest winner gets its own "Game we're playing" spot under the ticker: a glossy 2000s
+  movie-trailer panel (blurred cover backdrop, searchlights, lens flare, letterbox, starburst).
+  In Admin, Matt posts the link to where everyone plays it (`games.play_url`, set by
+  `set_play_link`); it shows as a big aqua PLAY NOW button.
+
+## Icons
+- Pixel icons from Pixelarticons (MIT, credited in the footer), copied into `js/icons.js`.
+  `icon("name")` makes one; `withIcons(text)` swaps emoji in saved chat/log text for icons.
+  To add one, copy its path from the pixelarticons@2.4.2 `svg/` folder into that file.
 
 ## Input safety
 - All text rendered as plain text (no innerHTML) → no script injection.

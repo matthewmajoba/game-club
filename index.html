@@ -34,13 +34,13 @@
 <main class="page">
   <header class="panel hdr">
     <h1 class="logo">GAME CLUB</h1>
-    <div class="tagline">★ like book club but for games ★</div>
+    <div class="tagline"><i data-ico="star"></i> like book club but for games <i data-ico="star"></i></div>
     <nav class="nav" id="nav"></nav>
   </header>
 
   <div class="ticker" aria-label="Stupid but true game facts"><div class="lbl">GAME FACTS</div><div class="run"><span id="facts">Loading the news...</span></div></div>
 
-  <section class="panel nowplay" id="nowplay" aria-label="Now playing" hidden></section>
+  <section class="panel nowplay" id="nowplay" aria-label="The game we are playing" hidden></section>
 
   <div class="cols">
     <section class="panel wall" aria-label="Game wall">
@@ -57,7 +57,7 @@
 
     <aside class="im" aria-label="Chat room">
       <div class="win">
-        <div class="tbar"><span class="ico">✦</span><span class="t">Game Club Chat Room</span></div>
+        <div class="tbar"><span class="ico"><i data-ico="sparkle"></i></span><span class="t">Game Club Chat Room</span></div>
         <div class="menu" id="chat-menu"></div>
         <div class="here glit" id="here"></div>
         <div class="chatlog glit" id="chatlog" aria-live="polite"></div>
@@ -68,18 +68,19 @@
   </div>
 
   <footer class="foot">
-    <span class="star">★</span>
+    <i data-ico="star" class="star"></i>
     <span class="badge">Best viewed in 1024x768</span>
     <span class="badge">Made w/ Notepad</span>
     <span class="badge">Game data: Steam + SteamSpy</span>
     <span>Photos: RDNE Stock project (Pexels), A Chosen Soul (Unsplash)</span>
-    <span class="star">★</span>
+    <span>Icons: <a href="https://pixelarticons.com" target="_blank" rel="noopener">Pixelarticons</a> (MIT)</span>
+    <i data-ico="star" class="star"></i>
   </footer>
 </main>
 
 <nav class="mtabs" id="mtabs">
-  <button type="button" class="on" data-tab="wall">🎮 Wall</button>
-  <button type="button" data-tab="chat">💬 Chat<b id="unread" hidden>0</b></button>
+  <button type="button" class="on" data-tab="wall"><i data-ico="gamepad"></i> Wall</button>
+  <button type="button" data-tab="chat"><i data-ico="message"></i> Chat<b id="unread" hidden>0</b></button>
 </nav>
 
 <div id="layer"></div>
