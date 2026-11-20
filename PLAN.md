@@ -79,10 +79,11 @@ Hannah, Junior, Katie, Sarah, Anthony, Giselle, Michael, Kat, Kalon, Matt (admin
 ## Rounds
 - Matt (admin) has a secret button to close the round; hottest game wins, wall resets,
   winners go to a "Hall of Fame" shelf.
-- The latest winner gets its own "Game we're playing" spot under the ticker: a glossy 2000s
-  movie-trailer panel (blurred cover backdrop, searchlights, lens flare, letterbox, starburst).
-  In Admin, Matt posts the link to where everyone plays it (`games.play_url`, set by
-  `set_play_link`); it shows as a big aqua PLAY NOW button.
+- The latest winner gets its own "Game we're playing" spot under the ticker, staged like a 2004
+  Hollywood premiere: searchlights, velvet curtains, chasing marquee bulbs, a blimp towing a
+  banner, a paparazzi crowd popping flashes, and a velvet rope. Box art | title + PLAY NOW | the
+  game night ticket. Matt posts the link in Admin (`games.play_url`, `set_play_link`).
+  Everything that moves animates only transform/opacity so it stays cheap.
 - Game night: in Admin, Matt sets when/where the club meets to talk about the winner
   (`games.meet_at`/`meet_place`, set by `set_game_night`). It shows as a movie ticket with a
   countdown, Add to calendar (.ics) and Google Calendar links.
@@ -149,3 +150,9 @@ Hannah, Junior, Katie, Sarah, Anthony, Giselle, Michael, Kat, Kalon, Matt (admin
 ## Open decisions
 - [ ] Screen names (AIM-style handles) or just real names in custom fonts?
 - [ ] Club rules beyond the 8-hour limit.
+
+## Speed notes
+- The Daily Reading crystal ball and counter use WebGL. Their shaders compile in the background
+  (KHR_parallel_shader_compile) after the page is drawn; asking for the result early froze the
+  page for ~1.5s, worst on Windows. Keep it that way.
+- Background textures are WebP at display size (neon 900px, checker 840px).

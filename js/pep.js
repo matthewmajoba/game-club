@@ -282,20 +282,21 @@ function stickAtlas() {
   return { w: W2, h: SH * 2, data: out };
 }
 
-// one full-screen triangle + one texture; returns a draw(floats, arrays) function or null
-function glQuad(cv, frag, tex, floats, arrays = []) {
+// one full-screen triangle + one texture; resolves to a draw(floats, arrays) function or null.
+// Shaders compile in the background (KHR_parallel_shader_compile) so the page never freezes;
+// Windows in particular can take a second or more to compile these.
+async function glQuad(cv, frag, tex, floats, arrays = []) {
   let gl = null;
   try { gl = cv.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false }); } catch { /* no webgl */ }
   if (!gl) return null;
-  const shader = (type, src) => {
-    const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; }
-    return s;
-  };
+  const shader = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
   const vs = shader(gl.VERTEX_SHADER, ORB_VERT), fs = shader(gl.FRAGMENT_SHADER, frag);
-  if (!vs || !fs) return null;
   const pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
-  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return null;
+  // don't ask for the result until it's ready (asking early blocks the whole page)
+  const par = gl.getExtension("KHR_parallel_shader_compile");
+  if (par) await new Promise((done) => { const poll = () => (gl.isContextLost() || gl.getProgramParameter(pr, par.COMPLETION_STATUS_KHR) ? done() : setTimeout(poll, 40)); poll(); });
+  if (gl.isContextLost()) return null;
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) { console.warn(gl.getShaderInfoLog(fs) || gl.getProgramInfoLog(pr)); return null; }
   gl.useProgram(pr);
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
@@ -349,8 +350,11 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const ctxs = [fxBack, fxFront].map((c) => { c.width = c.height = W * dpr; const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); return g; });
   orbCv.width = orbCv.height = Math.round(BALL * dpr);
-  let drawOrb = orbGL(orbCv);
-  if (!drawOrb) orbEl.classList.add("nogl"); // plain CSS ball if WebGL isn't available
+  // plain CSS ball first; the magic one fades in once its shader is built (after the page is drawn)
+  let drawOrb = null;
+  orbEl.classList.add("nogl");
+  const whenIdle = (fn) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 1500 }) : setTimeout(fn, 300));
+  whenIdle(() => orbGL(orbCv).then((d) => { if (d) { drawOrb = d; orbEl.classList.remove("nogl"); } }).catch(() => {}));
   orbCv.addEventListener("webglcontextlost", (e) => { e.preventDefault(); drawOrb = null; orbEl.classList.add("nogl"); });
   // the magic counter (plain cells until the twig digits are ready)
   const MC_W = 120, MC_H = 30;
@@ -363,7 +367,10 @@ export function initPep({ sb, rpc, h, toast, audio, getToken }) {
   const levelFor = (n) => MILESTONES.filter((m) => n >= m).length;
   Promise.race([document.fonts?.load('400 78px "Bungee"') || Promise.resolve(), new Promise((r) => setTimeout(r, 1500))])
     .catch(() => {})
-    .then(() => { drawMC = counterGL(mcCv); if (drawMC) frameEl.classList.add("gl"); });
+    .then(() => new Promise((r) => whenIdle(r)))
+    .then(() => counterGL(mcCv))
+    .then((d) => { if (d) { drawMC = d; frameEl.classList.add("gl"); } })
+    .catch(() => {});
   mcCv.addEventListener("webglcontextlost", (e) => { e.preventDefault(); drawMC = null; frameEl.classList.remove("gl"); });
 
   // ---------- sounds: a crystal chime that climbs a scale as the magic builds ----------

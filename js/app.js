@@ -309,37 +309,46 @@ function renderWall() {
 }
 
 // ---------- render: the game we're playing (latest winner + where to play it) ----------
-// a cinematic, glossy, extremely 2004 movie-trailer panel
+// a 2004 Hollywood premiere: searchlights, velvet curtains, a marquee, a blimp, and paparazzi
 const safeLink = (u) => (typeof u === "string" && /^https?:\/\/\S+$/i.test(u) ? u : null);
+// camera flashes popping in the crowd: [left %, bottom px, delay s, every s]
+const FLASHES = [[7, 34, 0.2, 3.1], [16, 22, 1.7, 4.3], [27, 40, 0.9, 2.7], [38, 26, 2.6, 3.9], [49, 36, 0.5, 5.1],
+  [58, 20, 3.3, 3.3], [68, 38, 1.2, 4.7], [77, 24, 2.1, 2.9], [86, 36, 0.7, 3.7], [94, 22, 2.9, 4.1]];
 function renderNowPlaying() {
   const box = $("nowplay");
   const g = S.hof[0];
   if (!g) { box.hidden = true; return; }
   const m = member(g.member_id), url = safeLink(g.play_url);
   const art = () => (g.cover_url ? coverImg(g) : h("div", { class: "marker" }, g.title));
-  const twinkles = [[6, 18, 0], [72, 7, 0.7], [92, 14, 1.3], [30, 86, 0.4], [78, 80, 1.9], [60, 26, 2.4], [96, 60, 1], [3, 70, 2.1]]
-    .map(([x, y, d]) => h("span", { class: "tw", vars: { left: x + "%", top: y + "%", "animation-delay": d + "s" } }, icon(d > 1.5 ? "sparkle" : "sparkles")));
   const play = url
     ? h("a", { class: "np-play", href: url, target: "_blank", rel: "noopener noreferrer" }, icon("play"), h("span", null, "PLAY NOW"))
     : h("div", { class: "np-soon" }, h("span", null, "Coming soon to a computer near you..."),
       S.me?.is_admin ? h("button", { type: "button", class: "btn pink", onclick: openAdmin }, lbl("settings-cog", "Add the link")) : null);
+  const hide = { "aria-hidden": "true" };
   box.replaceChildren(h("div", { class: "np-stage" },
-    g.cover_url ? h("img", { class: "np-bg", src: g.cover_url, alt: "", "aria-hidden": "true" }) : null,
-    h("div", { class: "np-beams", "aria-hidden": "true" }, h("i"), h("i")),
-    h("div", { class: "np-fx", "aria-hidden": "true" }),
-    ...twinkles,
+    h("div", { class: "np-sky", ...hide }),
+    g.cover_url ? h("img", { class: "np-bg", src: g.cover_url, alt: "", ...hide }) : null,
+    h("div", { class: "np-beams", ...hide }, h("i"), h("i"), h("i"), h("i")),
+    h("div", { class: "np-blimp", ...hide },
+      h("div", { class: "banner" }, h("span", null, "GAME CLUB ", icon("star"), " NOW PLAYING: ", g.title, " ", icon("star"), " BE THERE")),
+      h("div", { class: "rope" }),
+      h("div", { class: "ship" }, h("b", null, "GC"), h("i", { class: "fin" }), h("i", { class: "gon" }))),
+    h("div", { class: "np-curtain l", ...hide }), h("div", { class: "np-curtain r", ...hide }),
+    h("div", { class: "np-marquee", ...hide }),
     h("div", { class: "np-grid" },
-      h("div", { class: "np-case" }, art(), h("span", { class: "np-shine" })),
+      h("div", { class: "np-case-wrap" },
+        h("div", { class: "np-case" }, art(), h("span", { class: "np-shine" })),
+        h("div", { class: "np-burst", ...hide }, h("span", null, "THE", h("br"), "CLUB'S", h("br"), "PICK!"))),
       h("div", { class: "np-info" },
         h("div", { class: "np-kicker" }, icon("star"), h("span", null, "GAME WE'RE PLAYING"), icon("star")),
         h("h2", { class: "np-title" }, g.title),
         h("div", { class: "np-who" }, "picked by ", h("b", { vars: { color: m?.color || "#fff" } }, m?.name || "?"),
           g.ended_at ? h("span", { class: "nw" }, ` · crowned ${fmtDay(g.ended_at)}`) : null),
-        play,
-        gameNight(g))),
-    h("div", { class: "np-burst", "aria-hidden": "true" }, h("span", null, "THE", h("br"), "CLUB'S", h("br"), "PICK!")),
-    h("div", { class: "np-flare", "aria-hidden": "true" }),
-    h("div", { class: "np-bar top", "aria-hidden": "true" }), h("div", { class: "np-bar bot", "aria-hidden": "true" })));
+        play),
+      h("div", { class: "np-side" }, gameNight(g))),
+    h("div", { class: "np-crowd", ...hide },
+      FLASHES.map(([x, y, d, t]) => h("span", { class: "flash", vars: { left: x + "%", bottom: y + "px", "animation-delay": d + "s", "animation-duration": t + "s" } }))),
+    h("div", { class: "np-rope", ...hide }, h("i"), h("i"), h("i"))));
   box.hidden = false;
 }
 
@@ -1023,10 +1032,11 @@ document.querySelectorAll("[data-ico]").forEach((el) => el.replaceWith(icon(el.d
 (async function start() {
   try {
     await Promise.all([loadMembers(), loadRoundAndGames(), loadMessages(), loadFacts(), checkSession()]);
-    await loadShots();
   } catch (e) { toast("Couldn't reach Game Club's database. Try refreshing.", true); }
   if (S.me) S.me = member(S.me.id) || S.me;
   renderTicker(); renderAll();
+  // snapshots need the winner's id, so they load right after (without holding up the page)
+  loadShots().then(renderSnaps).catch(() => {});
   pep = initPep({ sb, rpc, h, toast, audio, getToken: () => S.token });
   setupRealtime(); setupPresence();
   if (S.me && !S.me.setup_done) openSetup();
