@@ -48,6 +48,29 @@ button{font:inherit;color:inherit}
   body.tab-chat .wall{display:none}
 }
 
+/* now playing: the latest winner and where to get it */
+.nowplay{--fill:radial-gradient(130% 120% at 0 0,#2a1a00,#120a00 55%,var(--panel));--stitch:var(--gold);display:grid;grid-template-columns:120px minmax(0,1fr);gap:16px;align-items:center;padding:12px 14px}
+.np-art{aspect-ratio:2/3;border:3px solid var(--gold);box-shadow:0 0 18px rgba(255,204,0,.45);background:#000;overflow:hidden}
+.np-art img{width:100%;height:100%;object-fit:cover;display:block}
+.np-info{display:grid;gap:6px;justify-items:start;min-width:0}
+.np-sign{--b:#ffcc00;padding:4px 12px;background:#1a0b00;border:2px solid #000;outline:2px solid #6a4a00;
+  background-image:radial-gradient(circle,var(--b) 2px,transparent 2.6px);background-size:12px 12px;background-position:0 0;animation:bulbs 1s steps(2) infinite}
+.np-sign span{display:block;background:#1a0b00;padding:2px 10px;font:400 clamp(15px,2.6vw,20px)/1 Bungee,Impact,sans-serif;color:#ffe53f;letter-spacing:.06em;text-shadow:0 0 8px rgba(255,200,0,.8),2px 2px 0 #7a1030}
+@keyframes bulbs{to{background-position:6px 0}}
+.np-title{margin:2px 0 0;font:900 clamp(24px,4.4vw,40px)/1 Impact,"Arial Black",sans-serif;color:#fff;text-shadow:3px 3px 0 #7a1030,0 0 14px rgba(255,120,0,.5);overflow-wrap:anywhere}
+.np-who{font:20px/1.1 var(--hand);color:var(--muted)}
+.np-who b{font-weight:400;text-shadow:1px 1px 0 #000}
+.np-who .nw{white-space:nowrap}
+.nowplay .get{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:4px}
+.getbtn{font:400 clamp(15px,2.4vw,19px)/1 Bungee,Impact,sans-serif;color:#111!important;background:linear-gradient(#fff36b,#ffcc00 55%,#ff9a00);border-color:#fff6a8;padding:10px 18px;box-shadow:0 0 16px rgba(255,204,0,.55);animation:getpulse 1.6s ease-in-out infinite}
+.getbtn:active{background:linear-gradient(#ff9a00,#ffcc00)}
+@keyframes getpulse{50%{box-shadow:0 0 28px rgba(255,204,0,.9)}}
+.nowplay .get small{color:var(--muted)}
+.nowplay .soon{font:18px var(--hand);color:#ffe53f}
+@media (max-width:820px){body.tab-chat .nowplay{display:none}}
+@media (max-width:480px){.nowplay{grid-template-columns:84px minmax(0,1fr);gap:12px;padding:10px}}
+.linkbox{display:grid;gap:8px;background:#fff3c4;border:2px solid #a07d00;padding:8px}
+
 /* glass display case */
 .wall{--fill:linear-gradient(#0e0e1c,#0e0e1c);padding:10px}
 .lightbox{margin:2px 10px 0;padding:10px 14px;background:linear-gradient(#fff,#f1f4ff 45%,#dfe5f5);border:6px solid #1a1a1a;border-bottom:0;box-shadow:0 0 22px rgba(200,220,255,.55),inset 0 0 18px rgba(255,255,255,.9);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
@@ -141,7 +164,7 @@ button{font:inherit;color:inherit}
 .chatlog .sys{color:#9aa0c8;font:italic 11px Tahoma,sans-serif}
 .send{display:flex;gap:4px;padding:0 4px 6px;align-items:stretch}
 .field{position:relative;flex:1;min-width:0}
-textarea,input[type=text],input[type=search],input[type=number]{width:100%;background:#fff;color:#111;border:2px inset #e8eaf2;padding:5px 6px;font:13px Tahoma,Verdana,sans-serif;border-radius:0}
+textarea,input[type=text],input[type=search],input[type=number],input[type=url]{width:100%;background:#fff;color:#111;border:2px inset #e8eaf2;padding:5px 6px;font:13px Tahoma,Verdana,sans-serif;border-radius:0}
 textarea{resize:vertical;min-height:44px}
 .cnt{position:absolute;right:6px;bottom:4px;font:700 10px Tahoma,sans-serif;color:#c00;background:rgba(255,255,255,.85);padding:0 2px;pointer-events:none}
 .send .go{border:2px outset #fff;background:#d8dbe6;font:700 12px Tahoma,sans-serif;padding:0 12px;cursor:pointer}

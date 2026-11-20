@@ -79,6 +79,9 @@ Hannah, Junior, Katie, Sarah, Anthony, Giselle, Michael, Kat, Kalon, Matt (admin
 ## Rounds
 - Matt (admin) has a secret button to close the round; hottest game wins, wall resets,
   winners go to a "Hall of Fame" shelf.
+- The latest winner gets its own "Now Playing" spot under the ticker. In Admin, Matt can post
+  a link to where everyone gets the game (`games.play_url`, set by `set_play_link`); it shows
+  as a big "Get the game" button.
 
 ## Input safety
 - All text rendered as plain text (no innerHTML) → no script injection.

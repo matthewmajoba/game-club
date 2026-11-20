@@ -299,6 +299,33 @@ function renderWall() {
       : [h("span", { class: "none" }, "nobody has chickened out... yet 👀")]),
     ...(extra > 0 ? [h("button", { type: "button", class: "more", onclick: openLog }, `+${extra} more in the Log`)] : []));
 
+  renderNowPlaying();
+}
+
+// ---------- render: now playing (the latest winner + where to get it) ----------
+const safeLink = (u) => (typeof u === "string" && /^https?:\/\/\S+$/i.test(u) ? u : null);
+const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
+function renderNowPlaying() {
+  const box = $("nowplay");
+  const g = S.hof[0];
+  if (!g) { box.hidden = true; return; }
+  const m = member(g.member_id), url = safeLink(g.play_url);
+  const get = url
+    ? h("div", { class: "get" },
+      h("a", { class: "btn big getbtn", href: url, target: "_blank", rel: "noopener noreferrer" }, "🕹️ GET THE GAME"),
+      h("small", null, "at ", hostOf(url)))
+    : h("div", { class: "get" },
+      h("span", { class: "soon" }, "Link to the game coming soon..."),
+      S.me?.is_admin ? h("button", { type: "button", class: "btn pink", onclick: openAdmin }, "⚙ Add the link") : null);
+  box.replaceChildren(
+    h("div", { class: "np-art" }, g.cover_url ? coverImg(g) : h("div", { class: "marker" }, g.title)),
+    h("div", { class: "np-info" },
+      h("div", { class: "np-sign" }, h("span", null, "🏆 NOW PLAYING 🏆")),
+      h("h2", { class: "np-title" }, g.title),
+      h("div", { class: "np-who" }, "picked by ", h("b", { vars: { color: m?.color || "#fff" } }, m?.name || "?"),
+        g.ended_at ? h("span", { class: "nw" }, ` · won ${fmtDay(g.ended_at)}`) : null),
+      get));
+  box.hidden = false;
 }
 
 // ---------- render: chat ----------
@@ -603,7 +630,7 @@ async function openLog() {
   const list = h("div", { class: "loglist glit" }, "loading...");
   body.append(h("small", null, "Everything that happened, newest first. Colors = who did it."), list);
   const { data } = await sb.from("log").select("*").order("created_at", { ascending: false }).limit(300);
-  const icon = { join: "👋", suggest: "🎮", vote: "🔥", withdraw: "😤", pull: "🚫", approve: "✅", round: "🏆" };
+  const icon = { join: "👋", suggest: "🎮", vote: "🔥", withdraw: "😤", pull: "🚫", approve: "✅", round: "🏆", link: "🕹️" };
   list.replaceChildren(...(data?.length ? data.map((l) => h("p", { vars: { "--mc": member(l.member_id)?.color || "#ddd" } },
     h("span", { class: "ts" }, `${fmtDay(l.created_at)} ${fmtTime(l.created_at)}`), `${icon[l.kind] || "•"} ${l.text}`)) : [h("p", null, "Nothing yet. Go pick a game!")]));
 }
@@ -652,10 +679,27 @@ function openAdmin() {
     } }, "Yes, close it"), h("button", { type: "button", class: "btn", onclick: () => box.replaceChildren(closeBtn) }, "Not yet"))));
   const closeBtn = h("button", { type: "button", class: "btn big", onclick: ask }, "Crown the winner + clear the shelf");
   box.append(closeBtn);
+  // where everyone can get the current winner (shows in the Now Playing spot)
+  const won = S.hof[0];
+  let linkBox = null;
+  if (won) {
+    const input = h("input", { type: "url", class: "linkin", placeholder: "https://... where to buy, download or play it", value: won.play_url || "", maxlength: 500, "aria-label": `Link for ${won.title}` });
+    const save = async (url) => {
+      try { await rpc("set_play_link", { p_token: S.token, p_game_id: won.id, p_url: url }); await refreshGames(); toast(url ? "Link posted! 🕹️" : "Link taken down."); closeDialog(); }
+      catch (e) { toast(errMsg(e), true); }
+    };
+    linkBox = h("div", { class: "linkbox" },
+      h("h3", null, `Where to get ${won.title}`),
+      input,
+      h("div", { class: "row" },
+        h("button", { type: "button", class: "btn big", onclick: () => save(input.value.trim()) }, won.play_url ? "Update the link" : "Post the link"),
+        won.play_url ? h("button", { type: "button", class: "btn red", onclick: () => save("") }, "Take it down") : null));
+  }
   body.append(
     h("h3", null, "Waiting for your OK"),
     pending.length ? h("div", null, pending.map((g) => h("div", { class: "row" }, h("span", null, `${g.title} (${member(g.member_id)?.name})`),
       h("button", { type: "button", class: "btn", onclick: () => openGame(g.id) }, "Check it")))) : h("span", null, "Nothing waiting."),
+    linkBox,
     h("h3", null, "Pick the winner"), box,
     h("small", null, "Need a new code for a member? Ask Claude to run scripts/set_codes.py with their name."));
 }
