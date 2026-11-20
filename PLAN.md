@@ -85,9 +85,11 @@ Hannah, Junior, Katie, Sarah, Anthony, Giselle, Michael, Kat, Kalon, Matt (admin
   live in .np-spill, which is bigger than the panel and fades out, so they spill a little past
   the edge (sideways only on wide screens, so phones never scroll sideways). Box art | title +
   PLAY NOW | game night ticket. Matt posts the link in Admin (`games.play_url`, `set_play_link`).
-- Game night: in Admin, Matt sets when/where the club meets to talk about the winner
-  (`games.meet_at`/`meet_place`, set by `set_game_night`). It shows as a movie ticket with a
-  countdown, Add to calendar (.ics) and Google Calendar links.
+- The talk (columns still named meet_at/meet_place, RPC set_game_night): not a game night, it is
+  when everyone hops on to talk about the game after playing it. Matt sets it in Admin in Pacific or
+  Central time. The ticket shows it in PT or CST/CDT with a switch each person can flip
+  (remembered in localStorage gc_tz), a countdown, Add to calendar (.ics) and Google Calendar.
+  Chat/log announcements always say PT.
 - Talking Points: four simple questions (loved, bugged you, moment that stuck, tell a friend?),
   opened from the ticket. Edit `TALK` in app.js.
 - Snapshots: each member pins one screenshot from their playthrough of the winner plus why it

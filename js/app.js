@@ -36,6 +36,7 @@ const store = {
   set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* private mode */ } },
 };
 const S = {
+  tz: store.get("gc_tz") === "CT" ? "CT" : "PT",
   token: store.get("gc_token"), me: null, members: [], round: null, games: [], votes: [], hof: [], shots: [],
   messages: [], facts: [], chatOn: store.get("gc_chat_on") !== "0", here: new Set(), hereReady: false,
   unread: 0, tab: "wall", openGameId: null, logOpen: false,
@@ -59,6 +60,28 @@ const $ = (id) => document.getElementById(id);
 const member = (id) => S.members.find((m) => m.id === id);
 const fmtTime = (t) => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 const fmtDay = (t) => new Date(t).toLocaleDateString([], { month: "short", day: "numeric" });
+// talk times show in Pacific or Central (each person picks; remembered on their device)
+const ZONES = { PT: "America/Los_Angeles", CT: "America/Chicago" };
+const zoneOf = (k) => ZONES[k] || ZONES.PT;
+// "PT", or "CST"/"CDT" (whichever is true on that date)
+const zoneLabel = (k, t) => (k === "CT"
+  ? new Intl.DateTimeFormat("en-US", { timeZone: ZONES.CT, timeZoneName: "short" }).formatToParts(new Date(t)).find((x) => x.type === "timeZoneName").value
+  : "PT");
+const zDay = (t, k) => new Date(t).toLocaleDateString("en-US", { timeZone: zoneOf(k), weekday: "short", month: "short", day: "numeric" });
+const zTime = (t, k) => {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: zoneOf(k), hour: "numeric", minute: "2-digit", hour12: true }).formatToParts(new Date(t)).map((x) => [x.type, x.value]));
+  return `${p.hour}${p.minute === "00" ? "" : ":" + p.minute}${p.dayPeriod.toLowerCase()} ${zoneLabel(k, t)}`;
+};
+// wall time in a zone ("2026-11-27T19:00") <-> a real moment, for the admin's date picker
+const zParts = (d, k) => Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: zoneOf(k), hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(d).map((x) => [x.type, x.value]));
+const toZoneInput = (t, k) => { const p = zParts(new Date(t), k); return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`; };
+function fromZoneInput(v, k) {
+  const [d, hm] = v.split("T"); const [y, mo, da] = d.split("-").map(Number); const [hh, mi] = hm.split(":").map(Number);
+  const guess = Date.UTC(y, mo - 1, da, hh, mi);
+  const p = zParts(new Date(guess), k);
+  const asZone = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute);
+  return new Date(guess + (guess - asZone)).toISOString();
+}
 
 // If a name we don't know shows up (member list still loading or out of date),
 // reload the member list instead of ever showing a placeholder name.
@@ -369,7 +392,7 @@ function renderNowPlaying() {
   box.hidden = false;
 }
 
-// ---------- game night: when we get together to talk about the winner ----------
+// ---------- the talk: once everyone has played it, we hop on and talk about the winner ----------
 const isPast = (at) => Date.now() > new Date(at).getTime() + 4 * 3600e3;
 function countdown(at) {
   const t = new Date(at), now = new Date(), ms = t - now;
@@ -387,22 +410,31 @@ function calendarFile(g) {
   const esc = (x) => String(x).replace(/[\\;,]/g, (c) => "\\" + c).replace(/\r?\n/g, "\\n");
   const start = new Date(g.meet_at), end = new Date(start.getTime() + 2 * 3600e3);
   const url = safeLink(g.play_url);
-  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Game Club//Game Night//EN", "BEGIN:VEVENT",
-    `UID:game-night-${g.id}-${icsTime(start)}@game-club`, `DTSTAMP:${icsTime(new Date())}`, `DTSTART:${icsTime(start)}`, `DTEND:${icsTime(end)}`,
-    `SUMMARY:${esc(`Game Club: ${g.title}`)}`,
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Game Club//The Talk//EN", "BEGIN:VEVENT",
+    `UID:game-talk-${g.id}-${icsTime(start)}@game-club`, `DTSTAMP:${icsTime(new Date())}`, `DTSTART:${icsTime(start)}`, `DTEND:${icsTime(end)}`,
+    `SUMMARY:${esc(`Game Club: let's talk about ${g.title}`)}`,
     g.meet_place ? `LOCATION:${esc(g.meet_place)}` : null,
-    `DESCRIPTION:${esc(`Game night! We're talking about ${g.title}. Play it first${url ? `: ${url}` : "!"}`)}`,
+    `DESCRIPTION:${esc(`We hop on and talk about ${g.title}. Play it before then${url ? `: ${url}` : "!"}`)}`,
     "END:VEVENT", "END:VCALENDAR"].filter(Boolean);
-  const a = h("a", { href: URL.createObjectURL(new Blob([lines.join("\r\n")], { type: "text/calendar" })), download: "game-night.ics" });
+  const a = h("a", { href: URL.createObjectURL(new Blob([lines.join("\r\n")], { type: "text/calendar" })), download: "game-club-talk.ics" });
   document.body.append(a); a.click(); a.remove();
 }
 function googleCal(g) {
   const start = new Date(g.meet_at), end = new Date(start.getTime() + 2 * 3600e3);
-  const q = new URLSearchParams({ action: "TEMPLATE", text: `Game Club: ${g.title}`, dates: `${icsTime(start)}/${icsTime(end)}`,
-    details: `Game night! We're talking about ${g.title}.`, location: g.meet_place || "" });
+  const q = new URLSearchParams({ action: "TEMPLATE", text: `Game Club: let's talk about ${g.title}`, dates: `${icsTime(start)}/${icsTime(end)}`,
+    details: `We hop on and talk about ${g.title}. Play it before then!`, location: g.meet_place || "" });
   return "https://calendar.google.com/calendar/render?" + q;
 }
 let tickTimer = null;
+// the date + time line, with a PT / CST switch
+function whenRow(t) {
+  const text = h("span", null);
+  const paint = () => { text.replaceChildren(zDay(t, S.tz), h("i", null, " · "), zTime(t, S.tz)); sw.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.k === S.tz))); };
+  const sw = ["PT", "CT"].map((k) => h("button", { type: "button", "data-k": k, onclick: () => { S.tz = k; store.set("gc_tz", k); paint(); } }, zoneLabel(k, t)));
+  const row = h("div", { class: "when" }, text, h("span", { class: "tzsw", role: "group", "aria-label": "Show the time in" }, sw));
+  paint();
+  return row;
+}
 function gameNight(g) {
   clearInterval(tickTimer);
   const talk = h("button", { type: "button", class: "np-talk", onclick: () => openTalk(g) }, icon("message-text"), " Talking Points");
@@ -410,10 +442,10 @@ function gameNight(g) {
   if (!g.meet_at) {
     return h("div", { class: "ticket tba" }, stub,
       h("div", { class: "tmain" },
-        h("div", { class: "tk" }, icon("calendar"), " GAME NIGHT"),
+        h("div", { class: "tk" }, icon("message"), " THE TALK"),
         h("div", { class: "when" }, "DATE TBA"),
-        h("div", { class: "where" }, "We'll pick a night to get together and talk about it."),
-        h("div", { class: "tact" }, talk, S.me?.is_admin ? h("button", { type: "button", class: "btn pink", onclick: openAdmin }, lbl("settings-cog", "Set game night")) : null)));
+        h("div", { class: "note" }, "Play it first. Once everyone has, we'll hop on to talk about it."),
+        h("div", { class: "tact" }, talk, S.me?.is_admin ? h("button", { type: "button", class: "btn pink", onclick: openAdmin }, lbl("settings-cog", "Set the date")) : null)));
   }
   const t = new Date(g.meet_at), past = isPast(g.meet_at);
   const cd = h("span", { class: "cd" }, countdown(g.meet_at));
@@ -423,9 +455,9 @@ function gameNight(g) {
     : h("span", null, icon("map-pin"), " ", g.meet_place)) : null;
   return h("div", { class: "ticket" + (past ? " past" : "") }, stub,
     h("div", { class: "tmain" },
-      h("div", { class: "tk" }, icon("calendar"), " GAME NIGHT ", cd),
-      h("div", { class: "when" }, t.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }), h("i", null, " · "),
-        t.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })),
+      h("div", { class: "tk" }, icon("message"), " THE TALK ", cd),
+      whenRow(t),
+      h("div", { class: "note" }, "Play it before then. This is when we hop on to talk about it."),
       place ? h("div", { class: "where" }, place) : null,
       h("div", { class: "tact" }, talk,
         past ? null : h("button", { type: "button", class: "np-cal", onclick: () => calendarFile(g) }, icon("calendar"), " Add to calendar"),
@@ -433,7 +465,7 @@ function gameNight(g) {
         past ? null : h("a", { class: "np-cal", href: googleCal(g), target: "_blank", rel: "noopener noreferrer" }, "Google"))));
 }
 
-// talking points: four simple questions for game night
+// talking points: four simple questions for when we talk about it
 const TALK = [
   ["heart", "What did you love?"],
   ["angry", "What bugged you?"],
@@ -888,7 +920,7 @@ function openRules() {
     h("li", null, "Backing out of your pick = +1 shame. Forever."),
     h("li", null, "Hottest game wins. Then we all play it."),
     h("li", null, "Post one snapshot from your playthrough and say why it caught your eye."),
-    h("li", null, "On game night we get together and talk about it.")));
+    h("li", null, "Once everyone has played it, we hop on and talk about it.")));
 }
 function openAdmin() {
   const body = dialog("Admin");
@@ -914,21 +946,30 @@ function openAdmin() {
       catch (e) { toast(errMsg(e), true); }
     };
     const pad = (n) => String(n).padStart(2, "0");
-    const local = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    const when = h("input", { type: "datetime-local", class: "linkin", value: won.meet_at ? local(new Date(won.meet_at)) : "", "aria-label": "Game night date and time" });
-    const where = h("input", { type: "text", class: "linkin", placeholder: "where? (Discord, Matt's place, a link...)", value: won.meet_place || "", maxlength: 200, "aria-label": "Where game night is" });
+    let zone = S.tz;
+    const when = h("input", { type: "datetime-local", class: "linkin", value: won.meet_at ? toZoneInput(won.meet_at, zone) : "", "aria-label": "Date and time to talk about it" });
+    // switching the zone keeps the same moment and rewrites the picker in the new zone
+    const zoneSel = h("select", { class: "zonesel", "aria-label": "Time zone" },
+      h("option", { value: "PT" }, "Pacific (PT)"), h("option", { value: "CT" }, "Central (CST/CDT)"));
+    zoneSel.value = zone;
+    zoneSel.addEventListener("change", () => {
+      if (when.value) when.value = toZoneInput(fromZoneInput(when.value, zone), zoneSel.value);
+      zone = zoneSel.value;
+    });
+    const where = h("input", { type: "text", class: "linkin", placeholder: "where? (Game Club Chat, Discord, a link...)", value: won.meet_place || "", maxlength: 200, "aria-label": "Where we talk about it" });
     const saveNight = async (clear) => {
       if (!clear && !when.value) { toast("Pick a date and time first.", true); return; }
       try {
-        await rpc("set_game_night", { p_token: S.token, p_game_id: won.id, p_at: clear ? null : new Date(when.value).toISOString(), p_place: clear ? null : where.value.trim() });
-        await refreshGames(); toast(clear ? "Game night cleared." : "Game night is on the calendar!"); closeDialog();
+        await rpc("set_game_night", { p_token: S.token, p_game_id: won.id, p_at: clear ? null : fromZoneInput(when.value, zone), p_place: clear ? null : where.value.trim() });
+        await refreshGames(); toast(clear ? "Date cleared." : "It's on the calendar!"); closeDialog();
       } catch (e) { toast(errMsg(e), true); }
     };
     nightBox = h("div", { class: "linkbox" },
-      h("h3", null, `Game night for ${won.title}`),
-      when, where,
+      h("h3", null, `When we talk about ${won.title}`),
+      h("small", null, "This is when everyone hops on to talk about it after playing."),
+      h("div", { class: "row" }, when, zoneSel), where,
       h("div", { class: "row" },
-        h("button", { type: "button", class: "btn big", onclick: () => saveNight(false) }, won.meet_at ? "Update game night" : "Set game night"),
+        h("button", { type: "button", class: "btn big", onclick: () => saveNight(false) }, won.meet_at ? "Update the date" : "Set the date"),
         won.meet_at ? h("button", { type: "button", class: "btn red", onclick: () => saveNight(true) }, "Clear it") : null));
     linkBox = h("div", { class: "linkbox" },
       h("h3", null, `Where to get ${won.title}`),
