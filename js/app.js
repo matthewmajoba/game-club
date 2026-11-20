@@ -309,11 +309,27 @@ function renderWall() {
 }
 
 // ---------- render: the game we're playing (latest winner + where to play it) ----------
-// a 2004 Hollywood premiere: searchlights, velvet curtains, a marquee, a blimp, and paparazzi
+// sharp lights: laser fans, neon tubes and aurora ribbons that spill a little past the panel's edge
 const safeLink = (u) => (typeof u === "string" && /^https?:\/\/\S+$/i.test(u) ? u : null);
-// camera flashes popping in the crowd: [left %, bottom px, delay s, every s]
-const FLASHES = [[7, 34, 0.2, 3.1], [16, 22, 1.7, 4.3], [27, 40, 0.9, 2.7], [38, 26, 2.6, 3.9], [49, 36, 0.5, 5.1],
-  [58, 20, 3.3, 3.3], [68, 38, 1.2, 4.7], [77, 24, 2.1, 2.9], [86, 36, 0.7, 3.7], [94, 22, 2.9, 4.1]];
+const NS_SVG = "http://www.w3.org/2000/svg";
+const svgEl = (tag, attrs = {}, ...kids) => { const e = document.createElementNS(NS_SVG, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); e.append(...kids); return e; };
+// laser fans: [angle deg, color]
+const FAN_A = [[-150, "#5ff"], [-118, "#fff"], [-92, "#b6ff3d"], [-64, "#5ff"], [-38, "#fff"], [-14, "#ff3fa4"], [10, "#5ff"], [34, "#fff"], [58, "#b6ff3d"], [84, "#5ff"], [112, "#ff3fa4"], [146, "#fff"], [176, "#5ff"]];
+const FAN_B = [[96, "#ff3fa4"], [118, "#ffe53f"], [140, "#ff3fa4"], [162, "#fff"], [184, "#ff3fa4"], [206, "#ffe53f"]];
+function aurora() {
+  const grad = (id, a, b) => svgEl("linearGradient", { id, x1: "0", x2: "1" },
+    svgEl("stop", { offset: "0", "stop-color": a, "stop-opacity": "0" }), svgEl("stop", { offset: ".35", "stop-color": a }),
+    svgEl("stop", { offset: ".7", "stop-color": b }), svgEl("stop", { offset: "1", "stop-color": b, "stop-opacity": "0" }));
+  const ribbon = (d, g, cls) => svgEl("g", { class: "rib " + cls },
+    svgEl("path", { d, stroke: `url(#${g})`, "stroke-width": "26", fill: "none", opacity: ".18" }),
+    svgEl("path", { d, stroke: `url(#${g})`, "stroke-width": "7", fill: "none", opacity: ".45" }),
+    svgEl("path", { d, stroke: "#fff", "stroke-width": "1.4", fill: "none", opacity: ".9" }));
+  return svgEl("svg", { class: "np-aurora", viewBox: "0 0 1000 420", preserveAspectRatio: "none", "aria-hidden": "true" },
+    svgEl("defs", {}, grad("au1", "#3ff", "#ff3fa4"), grad("au2", "#b6ff3d", "#3ff"), grad("au3", "#ff3fa4", "#ffe53f")),
+    ribbon("M-40 330 C 220 150 430 420 640 250 S 900 90 1040 150", "au1", "r1"),
+    ribbon("M-40 380 C 260 260 520 360 760 300 S 960 230 1040 260", "au2", "r2"),
+    ribbon("M-40 90 C 200 40 380 160 560 110 S 860 20 1040 60", "au3", "r3"));
+}
 function renderNowPlaying() {
   const box = $("nowplay");
   const g = S.hof[0];
@@ -325,30 +341,31 @@ function renderNowPlaying() {
     : h("div", { class: "np-soon" }, h("span", null, "Coming soon to a computer near you..."),
       S.me?.is_admin ? h("button", { type: "button", class: "btn pink", onclick: openAdmin }, lbl("settings-cog", "Add the link")) : null);
   const hide = { "aria-hidden": "true" };
-  box.replaceChildren(h("div", { class: "np-stage" },
-    h("div", { class: "np-sky", ...hide }),
-    g.cover_url ? h("img", { class: "np-bg", src: g.cover_url, alt: "", ...hide }) : null,
-    h("div", { class: "np-beams", ...hide }, h("i"), h("i"), h("i"), h("i")),
-    h("div", { class: "np-blimp", ...hide },
-      h("div", { class: "banner" }, h("span", null, "GAME CLUB ", icon("star"), " NOW PLAYING: ", g.title, " ", icon("star"), " BE THERE")),
-      h("div", { class: "rope" }),
-      h("div", { class: "ship" }, h("b", null, "GC"), h("i", { class: "fin" }), h("i", { class: "gon" }))),
-    h("div", { class: "np-curtain l", ...hide }), h("div", { class: "np-curtain r", ...hide }),
-    h("div", { class: "np-marquee", ...hide }),
-    h("div", { class: "np-grid" },
-      h("div", { class: "np-case-wrap" },
-        h("div", { class: "np-case" }, art(), h("span", { class: "np-shine" })),
-        h("div", { class: "np-burst", ...hide }, h("span", null, "THE", h("br"), "CLUB'S", h("br"), "PICK!"))),
-      h("div", { class: "np-info" },
-        h("div", { class: "np-kicker" }, icon("star"), h("span", null, "GAME WE'RE PLAYING"), icon("star")),
-        h("h2", { class: "np-title" }, g.title),
-        h("div", { class: "np-who" }, "picked by ", h("b", { vars: { color: m?.color || "#fff" } }, m?.name || "?"),
-          g.ended_at ? h("span", { class: "nw" }, ` · crowned ${fmtDay(g.ended_at)}`) : null),
-        play),
-      h("div", { class: "np-side" }, gameNight(g))),
-    h("div", { class: "np-crowd", ...hide },
-      FLASHES.map(([x, y, d, t]) => h("span", { class: "flash", vars: { left: x + "%", bottom: y + "px", "animation-delay": d + "s", "animation-duration": t + "s" } }))),
-    h("div", { class: "np-rope", ...hide }, h("i"), h("i"), h("i"))));
+  const fan = (list, cls) => h("div", { class: "fan " + cls }, list.map(([a, c], i) =>
+    h("i", { vars: { "--a": a + "deg", "--c": c, "animation-delay": (i * 0.37 % 2.2).toFixed(2) + "s" } })));
+  box.replaceChildren(
+    // the dark backdrop, clipped to the panel
+    h("div", { class: "np-back", ...hide },
+      g.cover_url ? h("img", { class: "np-bg", src: g.cover_url, alt: "" }) : null,
+      aurora(),
+      h("div", { class: "np-floor" })),
+    // the lights: these are allowed to spill a little past the panel
+    h("div", { class: "np-spill", ...hide },
+      fan(FAN_A, "a"), fan(FAN_B, "b"),
+      h("i", { class: "tube t1" }), h("i", { class: "tube t2" }), h("i", { class: "tube t3" }), h("i", { class: "tube t4" }),
+      h("div", { class: "np-sweep" }, h("i"))),
+    h("div", { class: "np-stage" },
+      h("div", { class: "np-grid" },
+        h("div", { class: "np-case-wrap" },
+          h("div", { class: "np-case" }, art(), h("span", { class: "np-shine" })),
+          h("div", { class: "np-burst", ...hide }, h("span", null, "THE", h("br"), "CLUB'S", h("br"), "PICK!"))),
+        h("div", { class: "np-info" },
+          h("div", { class: "np-kicker" }, icon("zap"), h("span", null, "GAME WE'RE PLAYING"), icon("zap")),
+          h("h2", { class: "np-title" }, g.title),
+          h("div", { class: "np-who" }, "picked by ", h("b", { vars: { color: m?.color || "#fff" } }, m?.name || "?"),
+            g.ended_at ? h("span", { class: "nw" }, ` · crowned ${fmtDay(g.ended_at)}`) : null),
+          play),
+        h("div", { class: "np-side" }, gameNight(g)))));
   box.hidden = false;
 }
 

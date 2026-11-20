@@ -79,11 +79,12 @@ Hannah, Junior, Katie, Sarah, Anthony, Giselle, Michael, Kat, Kalon, Matt (admin
 ## Rounds
 - Matt (admin) has a secret button to close the round; hottest game wins, wall resets,
   winners go to a "Hall of Fame" shelf.
-- The latest winner gets its own "Game we're playing" spot under the ticker, staged like a 2004
-  Hollywood premiere: searchlights, velvet curtains, chasing marquee bulbs, a blimp towing a
-  banner, a paparazzi crowd popping flashes, and a velvet rope. Box art | title + PLAY NOW | the
-  game night ticket. Matt posts the link in Admin (`games.play_url`, `set_play_link`).
-  Everything that moves animates only transform/opacity so it stays cheap.
+- The latest winner gets its own "Game we're playing" spot under the ticker: sharp lights.
+  Laser fans (one bursting from behind the box art, one raking in from the top-right), neon tubes
+  riding the frame and overshooting the corners, aurora ribbons, and a light sweep. The lights
+  live in .np-spill, which is bigger than the panel and fades out, so they spill a little past
+  the edge (sideways only on wide screens, so phones never scroll sideways). Box art | title +
+  PLAY NOW | game night ticket. Matt posts the link in Admin (`games.play_url`, `set_play_link`).
 - Game night: in Admin, Matt sets when/where the club meets to talk about the winner
   (`games.meet_at`/`meet_place`, set by `set_game_night`). It shows as a movie ticket with a
   countdown, Add to calendar (.ics) and Google Calendar links.
