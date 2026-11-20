@@ -83,6 +83,11 @@ Hannah, Junior, Katie, Sarah, Anthony, Giselle, Michael, Kat, Kalon, Matt (admin
   movie-trailer panel (blurred cover backdrop, searchlights, lens flare, letterbox, starburst).
   In Admin, Matt posts the link to where everyone plays it (`games.play_url`, set by
   `set_play_link`); it shows as a big aqua PLAY NOW button.
+- Game night: in Admin, Matt sets when/where the club meets to talk about the winner
+  (`games.meet_at`/`meet_place`, set by `set_game_night`). It shows as a movie ticket with a
+  countdown, Add to calendar (.ics) and Google Calendar links.
+- Talking Points: a guide of discussion questions (first impressions, mechanics, story, look and
+  sound, feelings, design choices, hot take, verdict) opened from the ticket. Edit `TALK` in app.js.
 
 ## Icons
 - Pixel icons from Pixelarticons (MIT, credited in the footer), copied into `js/icons.js`.

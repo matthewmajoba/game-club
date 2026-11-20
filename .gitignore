@@ -3,3 +3,6 @@
 .env*.local
 node_modules/
 member-codes.txt
+
+# private file for Matt, not part of the site
+imagery-knolling.png

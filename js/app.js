@@ -316,7 +316,7 @@ function renderNowPlaying() {
   if (!g) { box.hidden = true; return; }
   const m = member(g.member_id), url = safeLink(g.play_url);
   const art = () => (g.cover_url ? coverImg(g) : h("div", { class: "marker" }, g.title));
-  const twinkles = [[6, 18, 0], [44, 8, 0.7], [92, 14, 1.3], [30, 86, 0.4], [78, 80, 1.9], [60, 26, 2.4], [96, 60, 1], [3, 70, 2.1]]
+  const twinkles = [[6, 18, 0], [72, 7, 0.7], [92, 14, 1.3], [30, 86, 0.4], [78, 80, 1.9], [60, 26, 2.4], [96, 60, 1], [3, 70, 2.1]]
     .map(([x, y, d]) => h("span", { class: "tw", vars: { left: x + "%", top: y + "%", "animation-delay": d + "s" } }, icon(d > 1.5 ? "sparkle" : "sparkles")));
   const play = url
     ? h("a", { class: "np-play", href: url, target: "_blank", rel: "noopener noreferrer" }, icon("play"), h("span", null, "PLAY NOW"))
@@ -334,11 +334,96 @@ function renderNowPlaying() {
         h("h2", { class: "np-title" }, g.title),
         h("div", { class: "np-who" }, "picked by ", h("b", { vars: { color: m?.color || "#fff" } }, m?.name || "?"),
           g.ended_at ? h("span", { class: "nw" }, ` · crowned ${fmtDay(g.ended_at)}`) : null),
-        play)),
+        play,
+        gameNight(g))),
     h("div", { class: "np-burst", "aria-hidden": "true" }, h("span", null, "THE", h("br"), "CLUB'S", h("br"), "PICK!")),
     h("div", { class: "np-flare", "aria-hidden": "true" }),
     h("div", { class: "np-bar top", "aria-hidden": "true" }), h("div", { class: "np-bar bot", "aria-hidden": "true" })));
   box.hidden = false;
+}
+
+// ---------- game night: when we get together to talk about the winner ----------
+const isPast = (at) => Date.now() > new Date(at).getTime() + 4 * 3600e3;
+function countdown(at) {
+  const t = new Date(at), now = new Date(), ms = t - now;
+  if (ms < -4 * 3600e3) return "we already met!";
+  if (ms <= 0) return "HAPPENING NOW!";
+  const day = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const days = Math.round((day(t) - day(now)) / 864e5);
+  if (days === 0) return ms < 3600e3 ? `in ${Math.max(1, Math.round(ms / 6e4))} min!` : t.getHours() >= 17 ? "TONIGHT!" : "TODAY!";
+  if (days === 1) return "TOMORROW!";
+  return `in ${days} days`;
+}
+const icsTime = (d) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+// .ics file so it lands in anyone's calendar (Apple, Google, Outlook)
+function calendarFile(g) {
+  const esc = (x) => String(x).replace(/[\\;,]/g, (c) => "\\" + c).replace(/\r?\n/g, "\\n");
+  const start = new Date(g.meet_at), end = new Date(start.getTime() + 2 * 3600e3);
+  const url = safeLink(g.play_url);
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Game Club//Game Night//EN", "BEGIN:VEVENT",
+    `UID:game-night-${g.id}-${icsTime(start)}@game-club`, `DTSTAMP:${icsTime(new Date())}`, `DTSTART:${icsTime(start)}`, `DTEND:${icsTime(end)}`,
+    `SUMMARY:${esc(`Game Club: ${g.title}`)}`,
+    g.meet_place ? `LOCATION:${esc(g.meet_place)}` : null,
+    `DESCRIPTION:${esc(`Game night! We're talking about ${g.title}. Play it first${url ? `: ${url}` : "!"}`)}`,
+    "END:VEVENT", "END:VCALENDAR"].filter(Boolean);
+  const a = h("a", { href: URL.createObjectURL(new Blob([lines.join("\r\n")], { type: "text/calendar" })), download: "game-night.ics" });
+  document.body.append(a); a.click(); a.remove();
+}
+function googleCal(g) {
+  const start = new Date(g.meet_at), end = new Date(start.getTime() + 2 * 3600e3);
+  const q = new URLSearchParams({ action: "TEMPLATE", text: `Game Club: ${g.title}`, dates: `${icsTime(start)}/${icsTime(end)}`,
+    details: `Game night! We're talking about ${g.title}.`, location: g.meet_place || "" });
+  return "https://calendar.google.com/calendar/render?" + q;
+}
+let tickTimer = null;
+function gameNight(g) {
+  clearInterval(tickTimer);
+  const talk = h("button", { type: "button", class: "np-talk", onclick: () => openTalk(g) }, icon("message-text"), " Talking Points");
+  const stub = h("div", { class: "stub" }, h("span", null, "ADMIT ", h("b", null, "ALL")));
+  if (!g.meet_at) {
+    return h("div", { class: "ticket tba" }, stub,
+      h("div", { class: "tmain" },
+        h("div", { class: "tk" }, icon("calendar"), " GAME NIGHT"),
+        h("div", { class: "when" }, "DATE TBA"),
+        h("div", { class: "where" }, "We'll pick a night to get together and talk about it."),
+        h("div", { class: "tact" }, talk, S.me?.is_admin ? h("button", { type: "button", class: "btn pink", onclick: openAdmin }, lbl("settings-cog", "Set game night")) : null)));
+  }
+  const t = new Date(g.meet_at), past = isPast(g.meet_at);
+  const cd = h("span", { class: "cd" }, countdown(g.meet_at));
+  tickTimer = setInterval(() => { cd.textContent = countdown(g.meet_at); }, 60e3);
+  const place = g.meet_place ? (safeLink(g.meet_place)
+    ? h("a", { href: g.meet_place, target: "_blank", rel: "noopener noreferrer" }, icon("map-pin"), " Join here")
+    : h("span", null, icon("map-pin"), " ", g.meet_place)) : null;
+  return h("div", { class: "ticket" + (past ? " past" : "") }, stub,
+    h("div", { class: "tmain" },
+      h("div", { class: "tk" }, icon("calendar"), " GAME NIGHT ", cd),
+      h("div", { class: "when" }, t.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }), h("i", null, " · "),
+        t.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })),
+      place ? h("div", { class: "where" }, place) : null,
+      h("div", { class: "tact" }, talk,
+        past ? null : h("button", { type: "button", class: "np-cal", onclick: () => calendarFile(g) }, icon("calendar"), " Add to calendar"),
+        past ? null : h("span", { class: "or" }, "or"),
+        past ? null : h("a", { class: "np-cal", href: googleCal(g), target: "_blank", rel: "noopener noreferrer" }, "Google"))));
+}
+
+// talking points: what a game club actually talks about (like book club questions)
+const TALK = [
+  ["eye", "First impressions", ["What hooked you in the first hour, or almost made you quit?", "Was it the game you expected it to be?"]],
+  ["gamepad", "How it plays", ["What do you do over and over? Was it still fun the 100th time?", "Which mechanic was the best, and which one drove you nuts?", "Too easy, too hard, or just right?"]],
+  ["book-open", "Story & characters", ["What was the story really about, underneath?", "Which character or moment is stuck in your head?", "Did playing it tell the story too, not just the cutscenes?"]],
+  ["music", "Look, sound & world", ["How did the art and music make you feel?", "Is there a place in it you'd go back to just to hang out?"]],
+  ["heart", "Big feelings", ["When did you feel something: tense, sad, proud, scared?", "Was there a moment you yelled at the screen?"]],
+  ["pencil", "If you made it", ["If you could change one thing, what would it be?", "Why do you think the makers did it the way they did?"]],
+  ["fire", "Hot take", ["One opinion you think nobody else in the club will agree with."]],
+  ["trophy", "The verdict", ["Score out of 10, and who would you tell to play it?", "Did you finish it? (No shame either way.)"]],
+];
+function openTalk(g) {
+  const body = dialog("Talking Points", { wide: true });
+  body.append(
+    h("p", { class: "talk-intro" }, "Nobody has to answer everything. Pick one or two of these about ", h("b", null, g.title), " and bring them to game night."),
+    h("div", { class: "talk" }, TALK.map(([ic, head, qs]) => h("div", { class: "tp" },
+      h("h3", null, icon(ic), " ", head), h("ul", null, qs.map((q) => h("li", null, q)))))),
+    h("p", { class: "talk-tip" }, icon("sparkles"), " Bonus: bring a screenshot of your favorite moment and drop it in the chat."));
 }
 
 // ---------- render: chat ----------
@@ -643,7 +728,7 @@ async function openLog() {
   const list = h("div", { class: "loglist glit" }, "loading...");
   body.append(h("small", null, "Everything that happened, newest first. Colors = who did it."), list);
   const { data } = await sb.from("log").select("*").order("created_at", { ascending: false }).limit(300);
-  const kindIcon = { join: "hand", suggest: "gamepad", vote: "fire", withdraw: "angry", pull: "cancel", approve: "check", round: "trophy", link: "joystick" };
+  const kindIcon = { join: "hand", suggest: "gamepad", vote: "fire", withdraw: "angry", pull: "cancel", approve: "check", round: "trophy", link: "joystick", night: "calendar" };
   list.replaceChildren(...(data?.length ? data.map((l) => h("p", { vars: { "--mc": member(l.member_id)?.color || "#ddd" } },
     h("span", { class: "ts" }, `${fmtDay(l.created_at)} ${fmtTime(l.created_at)}`), icon(kindIcon[l.kind] || "star", "lg"), " ", withIcons(l.text))) : [h("p", null, "Nothing yet. Go pick a game!")]));
 }
@@ -676,7 +761,8 @@ function openRules() {
     h("li", null, `One game each, under ${max} hours.`),
     h("li", null, "You get 3 ", ...flames(1), " to vote with. Put 2 on one game for a big vote."),
     h("li", null, "Backing out of your pick = +1 shame. Forever."),
-    h("li", null, "Hottest game wins. Then we all play it.")));
+    h("li", null, "Hottest game wins. Then we all play it."),
+    h("li", null, "On game night we get together and talk about it. Check the Talking Points for ideas.")));
 }
 function openAdmin() {
   const body = dialog("Admin");
@@ -694,13 +780,30 @@ function openAdmin() {
   box.append(closeBtn);
   // where everyone can get the current winner (shows in the Now Playing spot)
   const won = S.hof[0];
-  let linkBox = null;
+  let linkBox = null, nightBox = null;
   if (won) {
     const input = h("input", { type: "url", class: "linkin", placeholder: "https://... where to buy, download or play it", value: won.play_url || "", maxlength: 500, "aria-label": `Link for ${won.title}` });
     const save = async (url) => {
       try { await rpc("set_play_link", { p_token: S.token, p_game_id: won.id, p_url: url }); await refreshGames(); toast(url ? "Link posted!" : "Link taken down."); closeDialog(); }
       catch (e) { toast(errMsg(e), true); }
     };
+    const pad = (n) => String(n).padStart(2, "0");
+    const local = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const when = h("input", { type: "datetime-local", class: "linkin", value: won.meet_at ? local(new Date(won.meet_at)) : "", "aria-label": "Game night date and time" });
+    const where = h("input", { type: "text", class: "linkin", placeholder: "where? (Discord, Matt's place, a link...)", value: won.meet_place || "", maxlength: 200, "aria-label": "Where game night is" });
+    const saveNight = async (clear) => {
+      if (!clear && !when.value) { toast("Pick a date and time first.", true); return; }
+      try {
+        await rpc("set_game_night", { p_token: S.token, p_game_id: won.id, p_at: clear ? null : new Date(when.value).toISOString(), p_place: clear ? null : where.value.trim() });
+        await refreshGames(); toast(clear ? "Game night cleared." : "Game night is on the calendar!"); closeDialog();
+      } catch (e) { toast(errMsg(e), true); }
+    };
+    nightBox = h("div", { class: "linkbox" },
+      h("h3", null, `Game night for ${won.title}`),
+      when, where,
+      h("div", { class: "row" },
+        h("button", { type: "button", class: "btn big", onclick: () => saveNight(false) }, won.meet_at ? "Update game night" : "Set game night"),
+        won.meet_at ? h("button", { type: "button", class: "btn red", onclick: () => saveNight(true) }, "Clear it") : null));
     linkBox = h("div", { class: "linkbox" },
       h("h3", null, `Where to get ${won.title}`),
       input,
@@ -712,7 +815,7 @@ function openAdmin() {
     h("h3", null, "Waiting for your OK"),
     pending.length ? h("div", null, pending.map((g) => h("div", { class: "row" }, h("span", null, `${g.title} (${member(g.member_id)?.name})`),
       h("button", { type: "button", class: "btn", onclick: () => openGame(g.id) }, "Check it")))) : h("span", null, "Nothing waiting."),
-    linkBox,
+    linkBox, nightBox,
     h("h3", null, "Pick the winner"), box,
     h("small", null, "Need a new code for a member? Ask Claude to run scripts/set_codes.py with their name."));
 }
